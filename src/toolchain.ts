@@ -238,3 +238,24 @@ export async function discoverToolchain(options: DiscoveryOptions = {}): Promise
     diagnostics: [...diagnostics].sort()
   };
 }
+
+/**
+ * Internal-only executable discovery for compiler validation. Explicit SDK
+ * overrides are strict and never fall back to an unrelated PATH executable.
+ * The process runner revalidates the canonical executable before every call.
+ */
+export async function locateCompiler(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform
+): Promise<string | null> {
+  const requested = env.GUNGNIR_MCP_SDK_ROOT ?? env.GUNGNIR_CMAKE_PREFIX;
+  if (requested !== undefined) {
+    if (!isAbsolute(requested) || requested.includes("\0")) return null;
+    try {
+      const root = await realpath(requested);
+      if (!(await stat(root)).isDirectory()) return null;
+      return await executable(join(root, "bin", "gungnirc" + (platform === "win32" ? ".exe" : "")), platform);
+    } catch { return null; }
+  }
+  return await findOnPath("gungnirc", env, platform);
+}
