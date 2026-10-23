@@ -8,14 +8,14 @@ const entry = resolve(process.cwd(), "dist/index.js");
 
 type ProtocolMode = "legacy" | "modern";
 
-async function connectClient(mode: ProtocolMode): Promise<Client> {
+async function connectClient(mode: ProtocolMode, args: string[] = []): Promise<Client> {
   const client = new Client(
-    { name: "gungnir-integration-test", version: "0.2.0" },
+    { name: "gungnir-integration-test", version: "0.3.0" },
     { versionNegotiation: { mode: mode === "legacy" ? "legacy" : { pin: "2026-07-28" } } }
   );
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [entry],
+    args: [entry, ...args],
     cwd: process.cwd(),
     stderr: "pipe"
   });
@@ -41,10 +41,11 @@ async function assertStatus(client: Client): Promise<void> {
   const status: unknown = JSON.parse(content.text);
   expect(status).toMatchObject({
     name: "gungnir-mcp",
-    version: "0.2.0",
-    implementationGroup: 2,
+    version: "0.3.0",
+    implementationGroup: 3,
     nativeCliAvailable: "not-checked",
-    projectMutationEnabled: false
+    projectMutationEnabled: false,
+    projectAccess: "disabled"
   });
 }
 
@@ -83,6 +84,32 @@ describe("real MCP stdio client interoperability", () => {
       await assertStatus(client);
     } finally {
       await client.close();
+    }
+  });
+
+  it("uses explicit CLI roots and reports trust without leaking paths", async () => {
+    const { mkdtemp, mkdir, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const temp = await mkdtemp(join(tmpdir(), "gungnir-mcp-client-"));
+    const project = join(temp, "application");
+    await mkdir(project);
+    try {
+      const client = await connectClient("modern", [
+        "--project-root", project, "--trusted-root", temp
+      ]);
+      try {
+        const response = await client.callTool({ name: "gungnir_status", arguments: {} });
+        const item = response.content[0];
+        expect(item?.type).toBe("text");
+        if (item?.type !== "text") throw new Error("Expected status text");
+        expect(item.text).toContain('"projectAccess":"trusted"');
+        expect(item.text).not.toContain(temp);
+      } finally {
+        await client.close();
+      }
+    } finally {
+      await rm(temp, { recursive: true, force: true });
     }
   });
 
