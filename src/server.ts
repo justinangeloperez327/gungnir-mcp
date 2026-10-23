@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 
-import { checkGungnir } from "./compiler-check.js";
+import { checkGungnir, verifyGungnirIr } from "./compiler-check.js";
 import { disabledRuntimeConfig } from "./config.js";
 import type { RuntimeConfig } from "./config.js";
 import { listProjectModules, scanProject, summarizeProject } from "./project.js";
@@ -75,6 +75,24 @@ export function createServer(config: RuntimeConfig = disabledRuntimeConfig()): M
     },
     async ({ file }) => {
       const result = await checkGungnir(config, file);
+      return {
+        isError: result.state !== "valid",
+        content: [{ type: "text" as const, text: JSON.stringify(result) }]
+      };
+    }
+  );
+
+
+  server.registerTool(
+    "gungnir_verify_ir",
+    {
+      description: "Verify C++ IR for a trusted structured Gungnir project or indexed .gnr module, without emitting files or running a build.",
+      inputSchema: z.strictObject({
+        file: z.string().max(256).optional()
+      })
+    },
+    async ({ file }) => {
+      const result = await verifyGungnirIr(config, file);
       return {
         isError: result.state !== "valid",
         content: [{ type: "text" as const, text: JSON.stringify(result) }]
