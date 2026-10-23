@@ -5,8 +5,8 @@
 3. **Configuration & Trust — complete** — CLI/env settings, trusted roots, canonical path containment and security tests.
 4. **Native Toolchain Discovery — complete** — read-only discovery of CLI, compiler, installed SDK profile/adapters, version mismatches and CMake with platform tests.
 5. **Secure Process Runner — complete** — fixed version-command allowlists, validated executables, cancellation, timeouts, bounded output and environment isolation. No build/run/write operations.
-6. **Project Intelligence — next** — structured and legacy profiles and module discovery.
-7. **Compiler Validation** — syntax and semantic checks.
+6. **Project Intelligence — complete** — trusted read-only structured/legacy profile inspection, bounded module listing, structural diagnostics and sensitive-path exclusions.
+7. **Compiler Validation — next** — syntax and semantic checks.
 8. **IR & Diagnostics** — verify IR and normalize diagnostics.
 9. **Documentation Resources** — grammar and guides.
 10. **Documentation Search** — versioned offline index.

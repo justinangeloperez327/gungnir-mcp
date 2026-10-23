@@ -31,3 +31,7 @@ Use an absolute path to `dist/index.js` in workspace `.vscode/mcp.json`:
 Remove the trust flags to use read-only status with project access disabled. On Windows supply absolute paths using escaped backslashes in JSON, or forward slashes. See [Configuration](configuration.md) for environment alternatives.
 
 Package verification with `npm run pack:check` does not publish. CI uploads build archives only.
+
+## Checking project intelligence
+
+Once connected with explicit `--project-root` and `--trusted-root`, the MCP host may invoke `gungnir_project_info` to inspect project profile/structure and `gungnir_list_modules` to inspect the sanitized `.gnr` module index. Both tools are read-only, accept no file-path argument and do not require a native SDK installation. See [Project intelligence](project-intelligence.md).

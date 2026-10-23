@@ -46,3 +46,9 @@ node dist/index.js
 ## Native SDK discovery configuration (Group 4)
 
 Toolchain discovery is independent of project trust. Set `GUNGNIR_MCP_SDK_ROOT` or `GUNGNIR_CMAKE_PREFIX` to an existing absolute Gungnir SDK root, or use a trusted `PATH`. A configured override is strict; it does not fall back to another Gungnir executable found on PATH. See [Toolchain discovery](toolchain.md).
+
+## Project metadata access (Group 6)
+
+`gungnir_project_info` and `gungnir_list_modules` require both a configured project and explicitly trusted root. With no project, startup still succeeds but either tool returns a generic MCP error without disclosing private paths. Tool arguments cannot override the root or read arbitrary files. Scans recheck root trust and avoid symlink following.
+
+Relative `.gnr` file paths and sanitized module names are returned; source-file content is not read. Even metadata can reveal project details, so only configure projects intended for the connected MCP client. See [Project intelligence](project-intelligence.md).

@@ -1,6 +1,6 @@
 # Security policy and project boundaries
 
-## Implemented through Group 5
+## Implemented through Group 6
 
 - Local stdio transport only. No HTTP listener or arbitrary shell.
 - Zod-validated startup project configuration; current directory not implicitly trusted.
@@ -12,6 +12,9 @@
 - Failed native executions return redacted error codes, not arbitrary child output.
 - SDK profile and adapters come from the installed, size-limited `share/gungnir/sdk.txt` manifest; no inferred capabilities.
 - No paths or raw subprocess errors are returned to MCP clients. Error messages are generic.
+- Trusted project inspection tools accept no user-controlled filesystem paths, recursively skip hidden, generated, and sensitive directories, and do not follow symlinks or junctions.
+- Only the small `.gungnir-project` marker is read (maximum 4 KiB); source and secret file contents are never read.
+- Every discovered module path is validated as a safe, relative `.gnr` filename with bounded tree traversal (2,048 entries, 12 levels, 200 modules).
 - No compiler checks, application builds, file writes, migrations or database calls.
 - CI does not publish or deploy.
 
@@ -19,6 +22,6 @@
 
 Reading binary version output requires *executing the binary's version handler*. A compromised or malicious executable on PATH or in an operator-specified SDK can perform side effects beyond the MCP server's control. Install trusted SDKs and keep PATH entries trusted. The MCP server is not an OS sandbox.
 
-Canonical filesystem checks alone are not race-free if a project mutates symlinks concurrently. Before enabling native application operations, future groups must add project-specific command validation, race-resistant file access, separate permission gates for writes/builds, and stronger Windows subprocess-tree termination before allowing long-running application commands.
+Project filenames themselves may be sensitive even when their contents are not. Apply repository-specific trust before exposing metadata. Canonical filesystem checks alone are not race-free if a project mutates symlinks concurrently. Before enabling native application operations, future groups must add project-specific command validation, race-resistant file access, separate permission gates for writes/builds, and stronger Windows subprocess-tree termination before allowing long-running application commands.
 
 Report vulnerabilities privately through GitHub's vulnerability reporting feature when enabled.
