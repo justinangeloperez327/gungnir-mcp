@@ -10,7 +10,7 @@ type ProtocolMode = "legacy" | "modern";
 
 async function connectClient(mode: ProtocolMode, args: string[] = []): Promise<Client> {
   const client = new Client(
-    { name: "gungnir-integration-test", version: "0.3.0" },
+    { name: "gungnir-integration-test", version: "0.4.0" },
     { versionNegotiation: { mode: mode === "legacy" ? "legacy" : { pin: "2026-07-28" } } }
   );
   const transport = new StdioClientTransport({
@@ -32,6 +32,7 @@ async function connectClient(mode: ProtocolMode, args: string[] = []): Promise<C
 async function assertStatus(client: Client): Promise<void> {
   const tools = await client.listTools();
   expect(tools.tools.map((tool) => tool.name)).toContain("gungnir_status");
+  expect(tools.tools.map((tool) => tool.name)).toContain("gungnir_toolchain_info");
 
   const result = await client.callTool({ name: "gungnir_status", arguments: {} });
   expect(result.isError).not.toBe(true);
@@ -41,8 +42,8 @@ async function assertStatus(client: Client): Promise<void> {
   const status: unknown = JSON.parse(content.text);
   expect(status).toMatchObject({
     name: "gungnir-mcp",
-    version: "0.3.0",
-    implementationGroup: 3,
+    version: "0.4.0",
+    implementationGroup: 4,
     nativeCliAvailable: "not-checked",
     projectMutationEnabled: false,
     projectAccess: "disabled"
@@ -110,6 +111,24 @@ describe("real MCP stdio client interoperability", () => {
       }
     } finally {
       await rm(temp, { recursive: true, force: true });
+    }
+  });
+
+  it("returns structured toolchain results with no arbitrary tool arguments or paths", async () => {
+    const client = await connectClient("modern");
+    try {
+      const response = await client.callTool({ name: "gungnir_toolchain_info", arguments: {} });
+      expect(response.isError).not.toBe(true);
+      const result = response.content[0];
+      if (result?.type !== "text") throw new Error("Expected toolchain report");
+      const data = JSON.parse(result.text) as Record<string, unknown>;
+      expect(data).toHaveProperty("sdk");
+      expect(data).toHaveProperty("cmake");
+      expect(data).toHaveProperty("diagnostics");
+      expect(data).not.toHaveProperty("absolutePath");
+      expect(data).not.toHaveProperty("projectRoot");
+    } finally {
+      await client.close();
     }
   });
 
