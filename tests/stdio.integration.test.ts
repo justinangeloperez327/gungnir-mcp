@@ -191,6 +191,50 @@ describe("real MCP stdio client interoperability", () => {
     }
   });
 
+  it("rejects compiler validation without project trust in both protocol modes", async () => {
+    for (const mode of ["legacy", "modern"] as const) {
+      const client = await connectClient(mode);
+      try {
+        for (const arguments_ of [{}, { file: "app/models/User.gnr" }]) {
+          const response = await client.callTool({ name: "gungnir_check", arguments: arguments_ });
+          expect(response.isError).toBe(true);
+          const content = response.content[0];
+          if (content?.type !== "text") throw new Error("Expected check response");
+          const report = JSON.parse(content.text) as Record<string, unknown>;
+          expect(report).toMatchObject({ state: "blocked", reason: "trusted_project_required" });
+        }
+      } finally { await client.close(); }
+    }
+  });
+
+  it("rejects compiler path traversal through the real MCP stdio transport", async () => {
+    const { mkdtemp, mkdir, rm, writeFile } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const tmp = await mkdtemp(join(tmpdir(), "gungnir-compiler-client-"));
+    const project = join(tmp, "app");
+    await mkdir(join(project, "app", "models"), { recursive: true });
+    await mkdir(join(project, "routes"), { recursive: true });
+    await writeFile(join(project, ".gungnir-project"), "name=sample\nprofile=structured\n");
+    await writeFile(join(project, "app", "models", "User.gnr"), "model User {}");
+    try {
+      for (const mode of ["legacy", "modern"] as const) {
+        const client = await connectClient(mode, ["--project-root", project, "--trusted-root", tmp]);
+        try {
+          const response = await client.callTool({
+            name: "gungnir_check", arguments: { file: "../outside.gnr" }
+          });
+          expect(response.isError).toBe(true);
+          const content = response.content[0];
+          if (content?.type !== "text") throw new Error("Expected check report");
+          const report = JSON.parse(content.text) as Record<string, unknown>;
+          expect(report.state).toBe("blocked");
+          expect(content.text).not.toContain(tmp);
+        } finally { await client.close(); }
+      }
+    } finally { await rm(tmp, { recursive: true, force: true }); }
+  });
+
   it("exits cleanly when the client closes stdin (EOF)", async () => {
     const child = spawn(process.execPath, [entry], {
       cwd: process.cwd(),

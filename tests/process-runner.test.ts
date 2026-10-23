@@ -167,3 +167,50 @@ describe("native environment isolation", () => {
     })).toEqual({ HOME: "/safe" });
   });
 });
+
+describe("bounded compiler-check subprocess operations", () => {
+  it("rejects compiler checks against untrusted or noncanonical paths", async () => {
+    const invalid = await runAllowedNative({
+      executable: executable,
+      tool: "gungnirc",
+      operation: "check_project",
+      projectRoot: "../relative"
+    });
+    expect(invalid).toMatchObject({ ok: false, reason: "invalid_input" });
+    const invalidFile = await runAllowedNative({
+      executable: executable,
+      tool: "gungnirc",
+      operation: "check_file",
+      projectRoot: directory,
+      sourceFile: join(tmpdir(), "external.gnr")
+    });
+    expect(invalidFile).toMatchObject({ ok: false, reason: "invalid_input" });
+  });
+
+  it("rejects all compiler builds and other unapproved operations", async () => {
+    const result = await runAllowedNative({
+      executable: executable,
+      tool: "gungnirc",
+      operation: "build" as "check_project",
+      projectRoot: directory
+    });
+    expect(result).toMatchObject({ ok: false, reason: "invalid_input" });
+  });
+
+  it.skipIf(windows)("passes only the approved --project and --check arguments", async () => {
+    const { chmod: chmodFile } = await import("node:fs/promises");
+    const native = join(directory, "gungnirc");
+    await writeFile(native, "#!/bin/sh\n" +
+      "test \"$1\" = \"--project\" && test \"$2\" = \"$GUNGNIR_TEST_ROOT\" && test \"$3\" = \"--check\" && test \"$#\" = 3\n");
+    await chmodFile(native, 0o755);
+    // Test does not add secrets or custom env to production runner.
+    // A rejected dummy command would return nonzero rather than executing a build.
+    const result = await runAllowedNative({
+      executable: native, tool: "gungnirc", operation: "check_project",
+      projectRoot: directory
+    });
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ reason: "nonzero_exit" });
+  });
+});
+
