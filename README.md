@@ -4,13 +4,13 @@
 
 **Gungnir MCP Server** provides a Model Context Protocol (MCP) integration for the [Gungnir](https://github.com/justinangeloperez327/gungnir) C++23 web framework and its `.gnr` language.
 
-> **Status: Group 1 foundation / developer preview (0.1.0).** This version includes only a safe, read-only `gungnir_status` tool. Project inspection, native Gungnir CLI execution, code generation, and builds are planned for later groups. Do not assume those capabilities are available yet.
+> **Status: Group 2 protocol foundation / developer preview (0.2.0).** Includes read-only `gungnir_status`, a real stdio server with clean shutdown, and client integration tests for both legacy and modern MCP protocol eras. Native toolchain discovery, source validation, code generation, and builds remain planned.
 
 ## Requirements
 
-- Node.js **24** and npm (Node 24-native GitHub Actions).
-- A compatible MCP host for stdio-based MCP integration.
-- The Gungnir CLI and SDK are **not required** for Group 1; later tools will require them.
+- Node.js **24** and npm.
+- A compatible MCP host for stdio connections.
+- A Gungnir SDK is **not required** for Groups 1–2.
 
 ## Development
 
@@ -20,31 +20,34 @@ npm run lint
 npm run typecheck
 npm run build
 npm test
-node dist/index.js
-```
-
-The compiled entry point speaks MCP over standard input/output; it is not an interactive terminal program. It intentionally writes **no logs to stdout**. Use an MCP client or Inspector to exercise it. For local development, `npm run dev` runs the TypeScript entry point using `tsx`.
-
-To verify npm package contents:
-
-```bash
 npm run pack:check
 ```
 
-## MCP API (Group 1)
+The compiled entry point `node dist/index.js` is an MCP server, not an interactive terminal application. Its stdout is reserved for protocol frames. To exercise it, connect an MCP client or run:
 
-- Tool `gungnir_status`: returns server identity, implementation group, and a truthful summary of current capabilities. It does not inspect files or execute commands.
+```bash
+npx @modelcontextprotocol/inspector node dist/index.js
+```
 
-## Configuration
+`npm run dev` starts the TypeScript entry point under `tsx`.
 
-The server currently uses **stdio only** and exposes no network listener. Read-only status is the only implemented capability. See [Architecture](docs/architecture.md), [Security](docs/security.md), [Setup](docs/setup.md) and [Roadmap](docs/roadmap.md).
+## Current MCP API
 
-## Development policy
+- Tool: `gungnir_status` (read-only), returning server identity, group and available capabilities.
+- Transport: stdio only.
+- Protocol: MCP SDK v2's legacy 2025 initialization and modern 2026-07-28 discovery, with automatic era selection on inbound stdio messages.
+- Lifecycle: EOF closes the connection; SIGINT and SIGTERM request idempotent graceful teardown.
+- Errors: SDK JSON-RPC errors stay in-band, transport diagnostics go to stderr.
 
-- CI runs lint, type checking, bundling, tests, and package verification on Windows and Ubuntu.
-- Node.js 24 is required; GitHub Actions run on their native Node 24 runtimes.
-- Builds do not publish to npm or deploy to a service.
-- Do not enable arbitrary shell execution or mutate Gungnir projects without a future explicit security design.
+No native project commands or filesystem writes are currently exposed.
+
+## Documentation
+
+[Architecture](docs/architecture.md) · [Setup](docs/setup.md) · [Protocol and troubleshooting](docs/protocol.md) · [Security](docs/security.md) · [Roadmap](docs/roadmap.md)
+
+## Delivery policy
+
+GitHub Actions validates Node.js 24 on Ubuntu and Windows and stores build artifacts. No npm publication or deployment takes place.
 
 ## License
 

@@ -4,8 +4,9 @@ import * as z from "zod/v4";
 import { foundationStatus, SERVER_NAME, SERVER_VERSION } from "./status.js";
 
 /**
- * Group 1 deliberately exposes only a read-only status tool.
- * Native CLI integration and project mutations belong to later audited groups.
+ * One independent instance per MCP connection.
+ * Group 2 supports stdio lifecycle and both protocol eras; native CLI
+ * operations and project mutations remain deferred.
  */
 export function createServer(): McpServer {
   const server = new McpServer({

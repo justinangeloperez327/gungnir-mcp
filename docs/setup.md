@@ -4,15 +4,13 @@
 
 1. Install Node.js 24.
 2. Clone `justinangeloperez327/gungnir-mcp`.
-3. Run `npm ci` (a committed `package-lock.json` is produced as part of Group 1 bootstrap).
+3. Run `npm ci` (lockfile committed to `main`).
 4. Run `npm run lint && npm run typecheck && npm run build && npm test`.
-5. Launch `node dist/index.js` from your MCP host.
+5. Point your MCP host to `node dist/index.js`.
 
-An MCP server over stdio can appear to wait when run directly in a terminal. This is expected; an MCP client exchanges JSON-RPC messages on its standard streams.
+## VS Code example
 
-## Example client configuration
-
-Use an absolute path to your local clone's compiled `dist/index.js`:
+Use an absolute path to the local clone's compiled `dist/index.js` in a workspace `.vscode/mcp.json` file:
 
 ```json
 {
@@ -26,8 +24,8 @@ Use an absolute path to your local clone's compiled `dist/index.js`:
 }
 ```
 
-MCP host configuration keys vary by product. The example above is a VS Code `.vscode/mcp.json` structure. Group 15 will add verified client-specific configurations.
+Other MCP clients use their own configuration conventions. The server responds to both legacy and 2026-07-28 protocol opening messages through the official TypeScript SDK. See [protocol](protocol.md) for details.
 
 ## Package
 
-`npm run pack:check` inspects packaging but does not publish. No deployment or publication occurs in CI.
+`npm run pack:check` inspects packaging but does not publish. CI uploads build archives but does not publish or deploy.

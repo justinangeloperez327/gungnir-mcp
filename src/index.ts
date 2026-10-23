@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-import { serveStdio } from "@modelcontextprotocol/server/stdio";
+import { reportProtocolError, startStdioServer } from "./lifecycle.js";
 
-import { createServer } from "./server.js";
-
-// MCP owns stdout. Never log to stdout from this entry point.
-serveStdio(createServer);
+// The MCP protocol owns stdout; errors go to stderr only.
+try {
+  startStdioServer();
+} catch (error) {
+  reportProtocolError(error);
+  process.exitCode = 1;
+}

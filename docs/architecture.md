@@ -1,22 +1,33 @@
-# Architecture — Group 1
+# Architecture — Group 2
 
 ```text
-MCP host <-> stdio <-> gungnir-mcp (Node.js 24 / TypeScript)
-                         |
-                         +-- Group 1: read-only gungnir_status
-                         +-- Future: Gungnir CLI, compiler, docs and prompts
+MCP client (legacy initialize / modern discover)
+                   |
+              stdio JSON-RPC
+                   |
+          serveStdio(createServer)
+                   |
+      one McpServer per connection
+                   |
+       gungnir_status (read-only)
+
+Later: project discovery / CLI / compiler / docs.
 ```
 
-## Boundaries
+## Protocol and lifecycle responsibilities
 
-- The MCP SDK implements the protocol; Gungnir remains the source of truth for `.gnr` grammar, diagnostics and native builds.
-- The server is independent of `gungnir` and `vscode-gungnir`, with future integration through documented CLI and LSP interfaces.
-- Group 1 does **not** execute native commands, modify files, serve HTTP, read secrets or implement any network API.
-- A new `McpServer` is created per stdio session using the official v2 `serveStdio` helper.
-- Diagnostics, project roots and subprocess security will be designed before introducing native operations.
+- Official `@modelcontextprotocol/server` v2 `serveStdio` owns wire framing, era selection and the pinned `McpServer` instance.
+- The server opts into `legacy: "serve"` so both 2025 and 2026 opening methods are accepted.
+- No reimplementation of JSON-RPC framing or `.gnr` grammar in TypeScript.
+- The SDK owns connection teardown on client EOF. The entry point registers SIGINT and SIGTERM handlers to close the server idempotently through its handle.
+- Signal shutdown is asynchronous and does not unconditionally call `process.exit()`.
+- Protocol errors are handled in-band by the SDK; out-of-band errors are reported to stderr only.
+- A new MCP server instance is created per process connection. The stdio process does not offer remote network access.
 
-## Version policy
+## Compatibility
 
-Framework compatibility will be tested against Gungnir 1.0.x. MCP server versioning is independent of the framework release. The source code imports `@modelcontextprotocol/server` v2 and Zod v4; the old v1 `@modelcontextprotocol/sdk` package must not be introduced.
+Tests exercise the compiled executable from the official `@modelcontextprotocol/client` v2 `StdioClientTransport` with both its `legacy` initialization and pinned `2026-07-28` discovery. EOF and recovery from unknown tool requests are also tested. This does not claim compatibility with every existing MCP host.
 
-See [Roadmap](roadmap.md).
+## Group boundary
+
+Toolchain discovery, sandboxing, subprocess invocation, `.gnr` compiler checks, generator writes and builds are deferred to Groups 3–15. See [roadmap](roadmap.md) and [protocol troubleshooting](protocol.md).

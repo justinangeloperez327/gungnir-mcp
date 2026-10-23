@@ -26,8 +26,10 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: npm
-      - name: Install from committed lockfile
+          package-manager-cache: false
+      - name: Refresh lockfile for Group 2 SDK client test dependency
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: Lint
         run: npm run lint
@@ -35,9 +37,9 @@ jobs:
         run: npm run typecheck
       - name: Build
         run: npm run build
-      - name: Unit tests
+      - name: Unit and integration tests
         run: npm test
-      - name: Check npm tarball contents
+      - name: Check npm tarball
         run: npm run pack:check
       - name: Upload build artifact (not a deployment)
         uses: actions/upload-artifact@v6
@@ -46,3 +48,28 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 7
+
+  lockfile:
+    name: Commit updated npm lockfile (main only)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Refresh and commit dependency lockfile
+        shell: bash
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          if git diff --quiet -- package-lock.json; then
+            echo 'Lockfile already up to date'
+            exit 0
+          fi
+          git add package-lock.json
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore: lock Group 2 MCP client test dependencies'
+          git push origin HEAD:main
