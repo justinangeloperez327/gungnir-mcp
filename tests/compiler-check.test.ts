@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { checkGungnir, normalizeCompilerDiagnostics } from "../src/compiler-check.js";
+import { checkGungnir, normalizeCompilerDiagnostics, summarizeIrFailures, verifyGungnirIr } from "../src/compiler-check.js";
 import { loadRuntimeConfig } from "../src/config.js";
 import type { RuntimeConfig } from "../src/config.js";
 import type { NativeResult } from "../src/process-runner.js";
@@ -174,5 +174,124 @@ describe("trusted compiler validation", () => {
     });
     expect(report).toMatchObject({ state: "failed", reason: "compiler_process_failed" });
     expect(JSON.stringify(report)).not.toContain("TOKEN");
+  });
+});
+
+
+describe("read-only C++ IR verification", () => {
+  it("uses exactly the native verify_ir_project operation for structured projects", async () => {
+    const deps = fake({ ok: true, stdout: "", stderr: "", exitCode: 0 });
+    const report = await verifyGungnirIr(config, undefined, deps);
+    expect(report).toMatchObject({
+      verification: "ir", state: "valid", target: "project",
+      irIssueCount: 0, irIssuesTruncated: false
+    });
+    expect(deps.execute).toHaveBeenCalledWith({
+      executable: compiler, tool: "gungnirc", operation: "verify_ir_project", projectRoot: project
+    });
+  });
+
+  it("uses verify_ir_file only for a scanned structured source file", async () => {
+    const deps = fake({ ok: true, stdout: "", stderr: "", exitCode: 0 });
+    const result = await verifyGungnirIr(config, "app/models/User.gnr", deps);
+    expect(result).toMatchObject({
+      state: "valid", target: "file", verification: "ir", file: "app/models/User.gnr"
+    });
+    expect(deps.execute).toHaveBeenCalledWith({
+      executable: compiler, tool: "gungnirc", operation: "verify_ir_file",
+      projectRoot: project, sourceFile: file
+    });
+  });
+
+  it("rejects IR verification for legacy projects, even for an indexed file", async () => {
+    await writeFile(join(project, ".gungnir-project"), "name=inventory\n");
+    const deps = fake({ ok: true, stdout: "", stderr: "", exitCode: 0 });
+    for (const path of [undefined, "app/models/User.gnr"]) {
+      const report = await verifyGungnirIr(config, path, deps);
+      expect(report).toMatchObject({
+        state: "blocked", reason: "structured_project_required", verification: "ir"
+      });
+    }
+    expect(deps.execute).not.toHaveBeenCalled();
+  });
+
+  it("denies paths not in trusted index and refuses symlinked project content", async () => {
+    const deps = fake({ ok: true, stdout: "", stderr: "", exitCode: 0 });
+    for (const path of ["../secrets.gnr", "/etc/passwd.gnr", "app/models/../User.gnr",
+      "app\\models\\User.gnr", "app/models/NotFound.gnr"]) {
+      expect((await verifyGungnirIr(config, path, deps)).state).toBe("blocked");
+    }
+    const outside = join(root, "outside");
+    await mkdir(outside);
+    await symlink(outside, join(project, "outside-link"), process.platform === "win32" ? "junction" : "dir");
+    const blocked = await verifyGungnirIr(config, undefined, deps);
+    expect(blocked).toMatchObject({ state: "blocked", reason: "unsafe_or_incomplete_scan" });
+    expect(deps.execute).not.toHaveBeenCalled();
+  });
+
+  it("counts IR verifier issue lines without returning their source snippets", async () => {
+    const text = [
+      "gungnirc: error: invalid C++ IR",
+      " - private_return_type SecretPassword from /tmp/secret",
+      " - broken_expression with PRIVATE_SOURCE",
+      " - leaked function token",
+      "4 | const secret = SOME_PRIVATE_TEXT;"
+    ].join("\n");
+    const deps = fake({ ok: false, reason: "nonzero_exit", exitCode: 1, diagnosticText: text });
+    const result = await verifyGungnirIr(config, undefined, deps);
+    expect(result).toMatchObject({
+      verification: "ir", state: "invalid", reason: "ir_verification_failed",
+      irIssueCount: 3, irIssuesTruncated: false, diagnostics: []
+    });
+    for (const sensitive of ["SecretPassword", "PRIVATE_SOURCE", "/tmp/secret", "SOME_PRIVATE_TEXT"]) {
+      expect(JSON.stringify(result)).not.toContain(sensitive);
+    }
+  });
+
+  it("preserves structured GNR diagnostics when lowering or semantic validation fails first", async () => {
+    const stderr = file + ":3:4: error[GNR1324]: undefined PRIVATE_API_KEY\n" +
+      "3 | const text = DECLASSIFIED_SECRET_SOURCE;\n" +
+      "help: use the private auth token";
+    const deps = fake({ ok: false, reason: "nonzero_exit", exitCode: 1, diagnosticText: stderr });
+    const result = await verifyGungnirIr(config, "app/models/User.gnr", deps);
+    expect(result).toMatchObject({
+      state: "invalid", reason: "compiler_rejected_source",
+      verification: "ir", irIssueCount: 0
+    });
+    expect(result.diagnostics[0]).toMatchObject({
+      file: "app/models/User.gnr", severity: "error", code: "GNR1324",
+      message: "Unresolved symbol or reference"
+    });
+    expect(JSON.stringify(result)).not.toContain("PRIVATE_API_KEY");
+    expect(JSON.stringify(result)).not.toContain("DECLASSIFIED_SECRET_SOURCE");
+  });
+
+  it("reports all resource failures with stable metadata and no subprocess text", async () => {
+    for (const reason of ["cancelled", "timeout", "output_limit", "spawn_failed", "invalid_input"] as const) {
+      const deps = fake({ ok: false, reason, exitCode: null });
+      const result = await verifyGungnirIr(config, undefined, deps);
+      expect(result.verification).toBe("ir");
+      expect(result.irIssueCount).toBe(0);
+      expect(result.state).toBe(reason === "spawn_failed" ? "failed" :
+        reason === "invalid_input" ? "blocked" : reason);
+    }
+  });
+
+  it("truncates excessive verifier failures and never echoes verifier payloads", () => {
+    const text = ["gungnirc: error: invalid C++ IR",
+      ...Array.from({ length: 55 }, (_, i) => " - PRIVATE_" + i)].join("\n");
+    const summary = summarizeIrFailures(text);
+    expect(summary).toEqual({ verifierFailure: true, count: 40, truncated: true });
+    expect(JSON.stringify(summary)).not.toContain("PRIVATE");
+  });
+
+  it("never echoes unfamiliar compiler diagnostic text, even if not quoted", async () => {
+    const deps = fake({
+      ok: false, reason: "nonzero_exit", exitCode: 1,
+      diagnosticText: file + ":2:1: error[GNR1319]: SENSITIVE_UNQUOTED_VALUE_SUPERSECRET"
+    });
+    const result = await verifyGungnirIr(config, undefined, deps);
+    expect(result.diagnostics[0]?.message).toBe("Compiler diagnostic (details withheld)");
+    expect(JSON.stringify(result)).not.toContain("SUPERSECRET");
   });
 });

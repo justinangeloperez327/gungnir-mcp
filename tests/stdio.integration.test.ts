@@ -236,6 +236,59 @@ describe("real MCP stdio client interoperability", () => {
     } finally { await rm(tmp, { recursive: true, force: true }); }
   });
 
+  it("rejects IR verification without trust in legacy and modern sessions", async () => {
+    for (const mode of ["legacy", "modern"] as const) {
+      const client = await connectClient(mode);
+      try {
+        for (const args of [{}, { file: "app/models/User.gnr" }]) {
+          const result = await client.callTool({ name: "gungnir_verify_ir", arguments: args });
+          expect(result.isError).toBe(true);
+          const content = result.content[0];
+          if (content?.type !== "text") throw new Error("Expected IR verification result");
+          expect(JSON.parse(content.text)).toMatchObject({
+            state: "blocked", verification: "ir", reason: "trusted_project_required",
+            irIssueCount: 0
+          });
+        }
+      } finally { await client.close(); }
+    }
+  });
+
+  it("rejects arbitrary flags and traversal over real MCP stdio", async () => {
+    const { mkdtemp, mkdir, rm, writeFile } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const tmp = await mkdtemp(join(tmpdir(), "gungnir-ir-client-"));
+    const project = join(tmp, "structured-project");
+    await mkdir(join(project, "app", "models"), { recursive: true });
+    await mkdir(join(project, "routes"), { recursive: true });
+    await writeFile(join(project, ".gungnir-project"), "name=sample\nprofile=structured\n");
+    await writeFile(join(project, "app", "models", "User.gnr"), "model User {}");
+    try {
+      for (const mode of ["legacy", "modern"] as const) {
+        const client = await connectClient(mode, ["--project-root", project, "--trusted-root", tmp]);
+        try {
+          const invalid = await client.callTool({
+            name: "gungnir_verify_ir", arguments: { file: "../secret.gnr" }
+          });
+          expect(invalid.isError).toBe(true);
+          const content = invalid.content[0];
+          if (content?.type !== "text") throw new Error("Expected IR result");
+          expect(JSON.parse(content.text)).toMatchObject({ state: "blocked", verification: "ir" });
+          expect(content.text).not.toContain(tmp);
+          let rejected = false;
+          try {
+            const extra = await client.callTool({
+              name: "gungnir_verify_ir", arguments: { file: "app/models/User.gnr", output: "evil.cpp" }
+            });
+            rejected = extra.isError === true;
+          } catch { rejected = true; }
+          expect(rejected).toBe(true);
+        } finally { await client.close(); }
+      }
+    } finally { await rm(tmp, { recursive: true, force: true }); }
+  });
+
   it("exits cleanly when the client closes stdin (EOF)", async () => {
     const child = spawn(process.execPath, [entry], {
       cwd: process.cwd(),

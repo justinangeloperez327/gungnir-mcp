@@ -214,3 +214,48 @@ describe("bounded compiler-check subprocess operations", () => {
   });
 });
 
+
+
+describe("Group 8 fixed IR operation allowlist", () => {
+  it("rejects untrusted targets, missing sources and invalid operation names", async () => {
+    const outside = join(tmpdir(), "not-in-project.gnr");
+    for (const request of [
+      { executable, tool: "gungnirc", operation: "verify_ir_project", projectRoot: "../unsafe" },
+      { executable, tool: "gungnirc", operation: "verify_ir_file", projectRoot: directory, sourceFile: outside },
+      { executable, tool: "cmake", operation: "verify_ir_project", projectRoot: directory },
+      { executable, tool: "gungnir", operation: "verify_ir_project", projectRoot: directory },
+      { executable, tool: "gungnirc", operation: "verify_ir_build", projectRoot: directory }
+    ]) {
+      const result = await runAllowedNative(request as NativeRequest);
+      expect(result).toMatchObject({ ok: false, reason: "invalid_input" });
+    }
+  });
+
+  it("refuses --compat and arbitrary flags during IR verification", async () => {
+    const native = join(directory, windows ? "gungnirc.exe" : "gungnirc");
+    if (windows) await copyFile(process.execPath, native);
+    else {
+      await writeFile(native, "#!/bin/sh\nexit 0\n");
+      await chmod(native, 0o755);
+    }
+    const extra = {
+      executable: native, tool: "gungnirc", operation: "verify_ir_project", projectRoot: directory,
+      compatibility: true
+    };
+    const result = await runAllowedNative(extra as NativeRequest);
+    expect(result).toMatchObject({ ok: false, reason: "invalid_input" });
+  });
+
+  it.skipIf(windows)("invokes actual POSIX fixture with exactly --project and --verify-ir", async () => {
+    const native = join(directory, "gungnirc");
+    await writeFile(native, '#!/bin/sh\n' +
+      'test "$#" = 3 && test "$1" = "--project" && test "$3" = "--verify-ir" || exit 93\n' +
+      'test -d "$2" || exit 94\n' +
+      'printf "ir fixture ok\\n"\n');
+    await chmod(native, 0o755);
+    const result = await runAllowedNative({
+      executable: native, tool: "gungnirc", operation: "verify_ir_project", projectRoot: directory
+    });
+    expect(result).toMatchObject({ ok: true, stdout: "ir fixture ok\n" });
+  });
+});
