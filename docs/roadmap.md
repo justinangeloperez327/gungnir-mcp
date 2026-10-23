@@ -1,8 +1,8 @@
 # Finalized 16-group roadmap
 
-1. **Foundation** — Node.js 24, TypeScript, MCP SDK v2, Zod v4, strict lint, Vitest, esbuild, docs, CI. *(This group.)*
-2. **MCP Protocol** — stdio lifecycle, protocol interoperability and clean shutdown.
-3. **Configuration & Trust** — trusted project roots and validated settings.
+1. **Foundation — complete** — Node.js 24, TypeScript, MCP SDK v2, Zod v4, strict lint, Vitest, esbuild, docs, CI.
+2. **MCP Protocol — complete** — stdio lifecycle, legacy/modern protocol interoperability, idempotent signal shutdown, EOF handling and real-client tests on Windows/Linux.
+3. **Configuration & Trust — next** — trusted project roots and validated settings.
 4. **Native Toolchain Discovery** — installed Gungnir CLI, compiler, SDK and CMake detection.
 5. **Secure Process Runner** — allowlists, timeouts, cancellation, environment and output limits.
 6. **Project Intelligence** — structured and legacy Gungnir profiles and module discovery.
