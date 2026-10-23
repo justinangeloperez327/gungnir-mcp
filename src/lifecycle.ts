@@ -1,5 +1,6 @@
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 
+import type { RuntimeConfig } from "./config.js";
 import { createServer } from "./server.js";
 
 type ShutdownSignal = "SIGINT" | "SIGTERM";
@@ -18,7 +19,7 @@ export interface SignalHost {
 export function reportProtocolError(error: unknown): void {
   const message = error instanceof Error ? error.message : "Unexpected MCP transport error";
   // NEVER log on stdout; the channel carries only JSON-RPC frames.
-  process.stderr.write(`gungnir-mcp: ${message}\n`);
+  process.stderr.write("gungnir-mcp: " + message + "\n");
 }
 
 /**
@@ -54,12 +55,9 @@ export function installSignalShutdown(
   return { shutdown };
 }
 
-/**
- * The MCP v2 serveStdio adapter pins one server per connection and
- * selects modern discovery vs. legacy initialization from the first message.
- */
-export function startStdioServer(): void {
-  const handle = serveStdio(createServer, {
+/** Legacy and modern MCP protocol sessions share one trusted configuration. */
+export function startStdioServer(config: RuntimeConfig): void {
+  const handle = serveStdio(() => createServer(config), {
     legacy: "serve",
     onerror: reportProtocolError
   });

@@ -1,5 +1,7 @@
+import type { RuntimeConfig } from "./config.js";
+
 export const SERVER_NAME = "gungnir-mcp";
-export const SERVER_VERSION = "0.2.0";
+export const SERVER_VERSION = "0.3.0";
 
 export interface FoundationStatus {
   readonly name: string;
@@ -8,15 +10,17 @@ export interface FoundationStatus {
   readonly capabilities: readonly string[];
   readonly nativeCliAvailable: "not-checked";
   readonly projectMutationEnabled: false;
+  readonly projectAccess: "trusted" | "disabled";
 }
 
-export function foundationStatus(): FoundationStatus {
+export function foundationStatus(config: RuntimeConfig = { projectRoot: null, trustedRoots: [] }): FoundationStatus {
   return {
     name: SERVER_NAME,
     version: SERVER_VERSION,
-    implementationGroup: 2,
+    implementationGroup: 3,
     capabilities: ["gungnir_status"],
     nativeCliAvailable: "not-checked",
-    projectMutationEnabled: false
+    projectMutationEnabled: false,
+    projectAccess: config.projectRoot === null ? "disabled" : "trusted"
   };
 }
