@@ -16,7 +16,7 @@ async function program(body: string): Promise<void> {
   await chmod(executable, 0o755);
 }
 
-function request(extra: Partial<NativeRequest> = {}): NativeRequest {
+function request(extra: Partial<Extract<NativeRequest, { operation: "version" }>> = {}): NativeRequest {
   return { executable, tool: "gungnir", operation: "version", ...extra };
 }
 
