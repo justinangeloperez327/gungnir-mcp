@@ -1,4 +1,4 @@
-# Architecture — Group 4
+# Architecture — Groups 4–7
 
 ```text
 MCP client
@@ -34,3 +34,7 @@ The two new project tools share a single internal, read-only `scanProject` imple
 The scanner does not follow symlinks/junctions, skips generated/hidden/sensitive paths, bounds entry count/depth/module count, and reports incomplete results through `truncated` and diagnostic codes. No arbitrary user path is accepted. Project intelligence performs only structural checks; it does **not** claim syntax/semantic validation.
 
 See [Project intelligence](project-intelligence.md) for API examples and limitations.
+
+## Group 7 read-only compiler validation
+
+A caller invokes `gungnir_check` with `{}` for a structured project or `{ "file": "app/models/User.gnr" }` for a safe indexed source file. Before invoking the native binary, the compiler-check service rechecks configured trust and the bounded project scanner, rejects symlinks and incomplete scans, and locates `gungnirc` through the strict SDK selection precedence. It passes only typed check operations through the shared restricted process runner. Compiler diagnostic headers are normalized to code/severity/relative path/position and sanitized message; raw output is not returned. No build, generation or mutation API exists. See [Compiler validation](compiler-validation.md).

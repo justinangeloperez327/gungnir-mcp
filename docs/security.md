@@ -1,6 +1,6 @@
 # Security policy and project boundaries
 
-## Implemented through Group 6
+## Implemented through Group 7
 
 - Local stdio transport only. No HTTP listener or arbitrary shell.
 - Zod-validated startup project configuration; current directory not implicitly trusted.
@@ -15,7 +15,9 @@
 - Trusted project inspection tools accept no user-controlled filesystem paths, recursively skip hidden, generated, and sensitive directories, and do not follow symlinks or junctions.
 - Only the small `.gungnir-project` marker is read (maximum 4 KiB); source and secret file contents are never read.
 - Every discovered module path is validated as a safe, relative `.gnr` filename with bounded tree traversal (2,048 entries, 12 levels, 200 modules).
-- No compiler checks, application builds, file writes, migrations or database calls.
+- Group 7 allows only fixed `gungnirc --project <root> --check` for structured projects and `gungnirc <indexed-file> --check` for individual files (plus `--compat` for legacy files). No native application build, output target or file mutation is enabled.
+- Checks require explicit project trust, a complete safe module scan, and canonical source/executable containment. Raw compiler output and source excerpts are not forwarded; only bounded normalized diagnostic headers are returned.
+- No application builds, file writes, migrations or database calls.
 - CI does not publish or deploy.
 
 ## Trust caveats

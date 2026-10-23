@@ -6,8 +6,8 @@
 4. **Native Toolchain Discovery — complete** — read-only discovery of CLI, compiler, installed SDK profile/adapters, version mismatches and CMake with platform tests.
 5. **Secure Process Runner — complete** — fixed version-command allowlists, validated executables, cancellation, timeouts, bounded output and environment isolation. No build/run/write operations.
 6. **Project Intelligence — complete** — trusted read-only structured/legacy profile inspection, bounded module listing, structural diagnostics and sensitive-path exclusions.
-7. **Compiler Validation — next** — syntax and semantic checks.
-8. **IR & Diagnostics** — verify IR and normalize diagnostics.
+7. **Compiler Validation — complete** — trusted structured-project and indexed-file \`gungnirc --check\`, safe process controls, normalized error metadata, cross-platform MCP tests.
+8. **IR & Diagnostics — next** — verify IR and normalize diagnostics.
 9. **Documentation Resources** — grammar and guides.
 10. **Documentation Search** — versioned offline index.
 11. **MCP Prompts** — scaffolding, debugging and review.

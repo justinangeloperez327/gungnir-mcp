@@ -1,6 +1,6 @@
-# Group 5 secure native process runner
+# Secure native process runner — Groups 5–7
 
-The internal `src/process-runner.ts` module is used by read-only toolchain discovery. **It is not exposed as a generic MCP tool.**
+The internal `src/process-runner.ts` module is used by toolchain discovery and trusted native compiler checks. **It is not exposed as a generic MCP tool.**
 
 ## Explicit command allowlist
 
@@ -9,8 +9,10 @@ The internal `src/process-runner.ts` module is used by read-only toolchain disco
 | `gungnir` | `version` | `--version` |
 | `gungnirc` | `version` | `--version` |
 | `cmake` | `version` | `--version` |
+| `gungnirc` | `check_project` | `--project <validated-root> --check` |
+| `gungnirc` | `check_file` | `<validated-indexed-.gnr-file> --check` (optional `--compat` for legacy) |
 
-Every other operation—including `build`, `run`, `dev`, `migrate`, and compiler project checks—is denied in Group 5. The request type exposes **no arbitrary argv, shell, environment or working directory**. The MCP caller does not receive a process-runner endpoint.
+Every other operation—including `build`, `run`, `dev`, `migrate`, `--format`, IR output, arbitrary compiler flags and `-o`—is denied. The request type exposes **no arbitrary argv, shell, environment or working directory**; compiler checks instead use canonical trusted project/file paths validated before spawning. The MCP caller does not receive a process-runner endpoint.
 
 ## Executable validation
 
@@ -19,15 +21,15 @@ The runner resolves a selected absolute executable using `realpath`. The canonic
 ## Resource and cancellation controls
 
 - `spawn` with `shell: false`, `windowsHide: true`, and `stdin` ignored
-- Fixed `--version` args, no project-supplied arguments
+- Fixed allowlisted `--version` or `--check` args only; no arbitrary project-supplied arguments
 - Child working directory: the host's temporary directory (not a Gungnir project)
 - Sanitized environment: only PATH, SystemRoot, WINDIR, TEMP, TMP, HOME and USERPROFILE (case-insensitive selection); no `NODE_OPTIONS`, `LD_PRELOAD`, `LD_LIBRARY_PATH`, app secrets or npm variables
-- Default timeout **3 seconds**; maximum **10 seconds**
-- Default combined stdout/stderr cap **8 KiB**; maximum **64 KiB**
+- Version timeout default **3 seconds** (max **10 seconds**); compiler-check default **10 seconds** (max **30 seconds**)
+- Version combined stdout/stderr cap default **8 KiB**; compiler-check default **32 KiB**; both max **64 KiB**
 - `AbortSignal` support before launch and while running
 - On POSIX, processes are detached into a process group which is terminated on abort, timeout, or output overflow
 - On Windows, the direct process is terminated; process-tree termination cannot be guaranteed without Windows Job Objects or comparable OS controls
-- An expected zero-exit result returns captured output to the trusted internal caller; all error cases return structured failure categories without raw process text
+- An expected zero-exit result returns captured output to the trusted internal caller; compiler nonzero exits retain bounded stderr *internally* for diagnostic-header normalization; no raw stderr is exposed by the public MCP tool, and all other errors return structured failure categories
 
 Validation and cancellation do not make executing an untrusted native executable safe. A malicious `--version` handler can still have side effects. Only run the server with trusted SDK installations and executable search paths.
 
@@ -37,4 +39,4 @@ Node 24 Windows/Linux CI exercises command rejection, executable path validation
 
 ## Future Groups
 
-Group 6 remains focused on read-only project metadata. Project code checks, builds, generators and migrations require separately audited typed allowlists, path/file-handle security, and explicit authorization. There is deliberately no public process-execution tool.
+Group 7 adds compiler checks behind explicit project trust. Application builds, generators and migrations require separately audited typed allowlists, path/file-handle security, and explicit authorization. There is deliberately no public process-execution tool.

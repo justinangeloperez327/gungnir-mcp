@@ -2,19 +2,19 @@
 
 [![CI](https://github.com/justinangeloperez327/gungnir-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/justinangeloperez327/gungnir-mcp/actions/workflows/ci.yml)
 
-**Gungnir MCP Server** integrates the [Gungnir](https://github.com/justinangeloperez327/gungnir) C++23 framework and `.gnr` language with MCP hosts.
+A Model Context Protocol (MCP) server for the [Gungnir](https://github.com/justinangeloperez327/gungnir) C++23 web framework and its `.gnr` language.
 
-> **Group 6 / developer preview (0.6.0).** Includes local stdio MCP (legacy and modern protocols), validated trusted project roots, **read-only native toolchain discovery**, and a bounded, allowlisted native process runner, and **read-only trusted project intelligence**. Compiler checking, project builds and code generation are **not yet available**.
+**Developer preview: Group 7, version 0.7.0.** Local stdio server supporting modern and legacy MCP protocols, trusted project configuration, native SDK discovery, structural project intelligence, and **native compiler validation via `gungnirc --check`**. Application builds, C++ generation, migrations and file mutations remain unavailable.
 
 ## Requirements
 
-- Node.js **24** and npm
-- An MCP host supporting stdio
-- Gungnir SDK and CMake are optional for starting the MCP server; discovery reports missing installations
+- Node.js 24, npm, a compatible MCP stdio host.
+- Install a trusted Gungnir SDK with `gungnirc` to use compiler validation. Project intelligence and status remain usable without it.
+- Configure an explicit trusted project root for source validation.
 
-## Development
+## Setup
 
-```bash
+```sh
 npm ci
 npm run lint
 npm run typecheck
@@ -23,44 +23,34 @@ npm test
 npm run pack:check
 ```
 
-To connect via MCP Inspector:
+Run the compiled server from your MCP host with an explicitly trusted project, for example:
 
-```bash
-npx @modelcontextprotocol/inspector node dist/index.js
+```sh
+node dist/index.js --project-root "/work/inventory" --trusted-root "/work"
 ```
 
-The process uses stdout exclusively for JSON-RPC messages. Do not run it as an interactive shell program.
+An MCP stdio server waits for client messages and reserves stdout for protocol traffic. Use `npx @modelcontextprotocol/inspector node dist/index.js` to inspect a server started without project access.
 
-## Tools
+## Available MCP tools
 
-- `gungnir_status`: the protocol/server version, group, capabilities and whether a project was explicitly trusted. It does not probe native tools.
-- `gungnir_toolchain_info`: an on-demand, no-argument, **read-only discovery** operation. It locates `gungnir`, `gungnirc`, `cmake`, reads `share/gungnir/sdk.txt`, and issues **only** fixed `--version` commands. Returns versions, SDK profile, enabled adapters, compatibility status and redacted diagnostic messages, without absolute paths.
+| Tool | Function |
+| --- | --- |
+| `gungnir_status` | Server version, group, capabilities, trust state |
+| `gungnir_toolchain_info` | Read-only Gungnir CLI, compiler, SDK and CMake discovery |
+| `gungnir_project_info` | Trusted Gungnir project marker/profile, structure and counts |
+| `gungnir_list_modules` | Bounded relative `.gnr` module listing |
+| `gungnir_check` | Native structured project or single-file `--check` validation with structured diagnostic results |
 
-The discovery operation executes the installed binaries to obtain version banners. Only configure toolchains from sources you trust.
+Calling `gungnir_check` with `{}` validates an explicitly trusted **structured** project. With `{"file":"app/models/User.gnr"}`, it checks one indexed, project-relative file, using compatibility mode when the project is legacy. Compiler errors return codes, locations and sanitized messages, not raw source excerpts or absolute paths.
 
-- `gungnir_project_info`: inspect the trusted project's `.gungnir-project` marker, structured/legacy profile, basic folder presence, sanitized name and categorized module counts. No source contents.
-- `gungnir_list_modules`: enumerate up to 200 relative `.gnr` module paths with dotted module names and declaration-folder categories. No source contents.
+Only fixed `gungnirc --check` operations are permitted. No caller-supplied compiler flags, executable paths, output targets or working directories are accepted.
 
-Both project tools require an **explicitly configured trusted root**, use a bounded tree walk and exclude hidden, generated and sensitive directories; symlinks and junctions are not followed. See [Project intelligence](docs/project-intelligence.md). Without project trust, they return an MCP tool error.
+## SDK selection and security
 
-## Secure subprocess boundary
+Select the trusted SDK using `GUNGNIR_MCP_SDK_ROOT`, or `GUNGNIR_CMAKE_PREFIX`, otherwise use a trusted absolute `PATH`. Explicit SDK overrides do not silently fall back to another compiler. Native version and check operations run through the bounded, no-shell subprocess runner.
 
-Group 5 replaces direct CLI probing with an internal process runner. It only permits `gungnir --version`, `gungnirc --version`, and `cmake --version` against validated native executables. It rejects arbitrary commands, build/run/check operations, caller-supplied arguments, relative executables, and script wrappers. Internal callers may request bounded timeouts, output limits, or AbortSignal cancellation. The child runs with an isolated environment, no stdin, no shell, and no project working directory.
+**Important:** Native compilation checks necessarily read trusted source files and execute a local `gungnirc` binary. Only enable them for projects and toolchains you trust. Canonical filesystem checks and bounded scans are not a race-free OS sandbox.
 
-No general-purpose process tool has been added to MCP. **This is not an OS sandbox:** an executable selected from an untrusted PATH can still be malicious. See [Process runner](docs/process-runner.md) for the exact security boundary and limitations.
+Read [Compiler validation](docs/compiler-validation.md), [Process runner](docs/process-runner.md), [Project intelligence](docs/project-intelligence.md), [Configuration](docs/configuration.md), [Security](docs/security.md) and the [16-group roadmap](docs/roadmap.md).
 
-## Toolchain selection
-
-Use `GUNGNIR_MCP_SDK_ROOT` to select an installed SDK directory explicitly. Otherwise an absolute `GUNGNIR_CMAKE_PREFIX` takes precedence, then the absolute directories listed in `PATH` are searched. An invalid explicit override **does not silently fall back** to another installation. `cmake` is resolved from `PATH` separately.
-
-See [Toolchain discovery](docs/toolchain.md) for compatibility and security details.
-
-## Optional project trust
-
-No project directory is implicitly trusted. Explicit project access requires both `--project-root` and `--trusted-root` (or their environment counterparts); see [Configuration](docs/configuration.md). Trust does not grant build or write permissions.
-
-## Documentation
-
-[Toolchain discovery](docs/toolchain.md) · [Architecture](docs/architecture.md) · [Configuration](docs/configuration.md) · [Security](docs/security.md) · [Setup](docs/setup.md) · [Protocol](docs/protocol.md) · [Roadmap](docs/roadmap.md)
-
-CI runs on Node.js 24 with Ubuntu 24.04 and Windows 2025 and uploads build artifacts. It does **not** publish an npm package or deploy services. MIT License.
+CI uses Node.js 24 on Windows 2025 and Ubuntu 24.04. **No automatic npm publication or deployment.** MIT license.
