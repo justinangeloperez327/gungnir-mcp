@@ -19,7 +19,13 @@ async function connectClient(mode: ProtocolMode): Promise<Client> {
     cwd: process.cwd(),
     stderr: "pipe"
   });
-  await client.connect(transport);
+  const diagnostics: string[] = [];
+  transport.stderr?.on("data", (chunk: Buffer) => { diagnostics.push(chunk.toString("utf8")); });
+  try {
+    await client.connect(transport);
+  } catch (error) {
+    throw new Error(`MCP connection failed: ${String(error)}; child stderr: ${diagnostics.join("")}`);
+  }
   return client;
 }
 
@@ -89,7 +95,9 @@ describe("real MCP stdio client interoperability", () => {
     let stdout = "";
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => { stdout += chunk; });
-    child.stderr.resume();
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => { stderr += chunk; });
 
     try {
       const exit = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolveExit, rejectExit) => {
@@ -98,7 +106,7 @@ describe("real MCP stdio client interoperability", () => {
       });
       child.stdin.end();
       const result = await exit;
-      expect(result).toEqual({ code: 0, signal: null });
+      expect({ ...result, stderr }).toEqual({ code: 0, signal: null, stderr: "" });
       expect(stdout).toBe("");
     } finally {
       if (child.exitCode === null && child.signalCode === null) child.kill();
