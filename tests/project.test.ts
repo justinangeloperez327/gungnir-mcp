@@ -165,8 +165,8 @@ describe("trusted Gungnir project intelligence", () => {
     await mkdir(join(project, "private-key"), { recursive: true });
     await file(join(project, "private-key", "File.gnr"));
     await file(join(project, "app", "models", ".Hidden.gnr"));
-    await file(join(project, "app", "models", "Token.gnr"));
+    await file(join(project, "app", "models", "Session.gnr"));
     const scan = await scanProject(await config());
-    expect(scan.modules.map(m => m.path)).toEqual(["app/models/Token.gnr"]);
+    expect(scan.modules.map(m => m.path)).toEqual(["app/models/Session.gnr"]);
   });
 });

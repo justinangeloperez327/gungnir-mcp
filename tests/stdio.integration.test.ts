@@ -134,6 +134,62 @@ describe("real MCP stdio client interoperability", () => {
     }
   });
 
+  it("denies project tools without explicit trust in both protocol eras", async () => {
+    for (const mode of ["legacy", "modern"] as const) {
+      const client = await connectClient(mode);
+      try {
+        for (const name of ["gungnir_project_info", "gungnir_list_modules"]) {
+          const response = await client.callTool({ name, arguments: {} });
+          expect(response.isError).toBe(true);
+          expect(JSON.stringify(response)).not.toContain(process.cwd());
+        }
+      } finally {
+        await client.close();
+      }
+    }
+  });
+
+  it("returns only relative modules in trusted projects in both protocol eras", async () => {
+    const { mkdtemp, mkdir, rm, writeFile } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const temp = await mkdtemp(join(tmpdir(), "gungnir-mcp-scanner-"));
+    const project = join(temp, "app-project");
+    await mkdir(join(project, "app", "models"), { recursive: true });
+    await mkdir(join(project, "routes"), { recursive: true });
+    await writeFile(join(project, ".gungnir-project"), "name=app_project\\nprofile=structured\\n".replaceAll("\\n", "\n"));
+    await writeFile(join(project, "app", "models", "User.gnr"), "PRIVATE_SOURCE");
+    await writeFile(join(project, "routes", "web.gnr"), "Route::get");
+    try {
+      for (const mode of ["legacy", "modern"] as const) {
+        const client = await connectClient(mode, ["--project-root", project, "--trusted-root", temp]);
+        try {
+          const projectInfo = await client.callTool({ name: "gungnir_project_info", arguments: {} });
+          expect(projectInfo.isError).not.toBe(true);
+          const first = projectInfo.content[0];
+          if (first?.type !== "text") throw new Error("Expected project info");
+          const info = JSON.parse(first.text) as Record<string, unknown>;
+          expect(info).toMatchObject({
+            profile: "structured", marker: "present", moduleCount: 2
+          });
+          expect(JSON.stringify(info)).not.toContain(temp);
+          const listing = await client.callTool({ name: "gungnir_list_modules", arguments: {} });
+          expect(listing.isError).not.toBe(true);
+          const second = listing.content[0];
+          if (second?.type !== "text") throw new Error("Expected module listing");
+          const modules = JSON.parse(second.text) as { modules: Array<{ path: string }> };
+          expect(modules.modules.map(m => m.path)).toEqual(["app/models/User.gnr", "routes/web.gnr"]);
+          expect(second.text).not.toContain("PRIVATE_SOURCE");
+          expect(second.text).not.toContain(temp);
+        } finally {
+          await client.close();
+        }
+      }
+    } finally {
+      await rm(temp, { force: true, recursive: true });
+    }
+  });
+
   it("exits cleanly when the client closes stdin (EOF)", async () => {
     const child = spawn(process.execPath, [entry], {
       cwd: process.cwd(),
