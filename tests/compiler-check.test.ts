@@ -27,6 +27,9 @@ beforeEach(async () => {
   await writeFile(file, "model User {}\n");
   await writeFile(join(project, "routes", "web.gnr"), "Route::get\n");
   config = await loadRuntimeConfig(["--project-root", project, "--trusted-root", workspace], {});
+  // Windows temp paths may be returned as 8.3 aliases; native operations use the canonical root.
+  project = config.projectRoot ?? project;
+  file = join(project, "app", "models", "User.gnr");
   compiler = join(root, "sdk", "bin", process.platform === "win32" ? "gungnirc.exe" : "gungnirc");
 });
 
