@@ -12,7 +12,7 @@ export interface CloseHandle {
 export interface SignalHost {
   once(signal: ShutdownSignal, listener: () => void): void;
   off(signal: ShutdownSignal, listener: () => void): void;
-  exitCode?: number | undefined;
+  exitCode?: number | string | null | undefined;
 }
 
 export function reportProtocolError(error: unknown): void {
