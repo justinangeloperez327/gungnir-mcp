@@ -289,6 +289,74 @@ describe("real MCP stdio client interoperability", () => {
     } finally { await rm(tmp, { recursive: true, force: true }); }
   });
 
+  it("lists official documentation resources and reads exact pinned content across protocol eras", async () => {
+    for (const mode of ["legacy", "modern"] as const) {
+      const client = await connectClient(mode);
+      try {
+        const listed = await client.listResources();
+        const uris = listed.resources.map(r => r.uri);
+        expect(uris).toContain("gungnir://docs/1.0.2/grammar");
+        expect(uris).toContain("gungnir://docs/1.0.2/routing");
+        expect(uris).toContain("gungnir://docs/1.0.2/sdk-packages");
+        expect(uris).toContain("gungnir://docs/catalog");
+        expect(uris).toContain("gungnir://sdk/capabilities");
+        expect(uris).toHaveLength(18);
+        const grammar = await client.readResource({ uri: "gungnir://docs/1.0.2/grammar" });
+        expect(grammar.contents).toHaveLength(1);
+        expect(grammar.contents[0]).toMatchObject({
+          uri: "gungnir://docs/1.0.2/grammar",
+          mimeType: "text/markdown"
+        });
+        const md = grammar.contents[0];
+        expect(md && "text" in md && md.text).toContain("Gungnir");
+        const catalog = await client.readResource({ uri: "gungnir://docs/catalog" });
+        const item = catalog.contents[0];
+        if (!item || !("text" in item)) throw new Error("Expected JSON catalog");
+        const parsed = JSON.parse(item.text) as { sourceCommit: string; resources: unknown[] };
+        expect(parsed.sourceCommit).toBe("90cb063eca81f121c78c8ab77b8dea67143dbad1");
+        expect(parsed.resources).toHaveLength(16);
+      } finally { await client.close(); }
+    }
+  });
+
+  it("returns sanitized SDK availability without PATH or filesystem disclosure", async () => {
+    const client = await connectClient("modern");
+    try {
+      const value = await client.readResource({ uri: "gungnir://sdk/capabilities" });
+      const item = value.contents[0];
+      if (!item || !("text" in item)) throw new Error("Expected JSON SDK capabilities");
+      const sdk = JSON.parse(item.text) as { state: string; documentationVersion: string };
+      expect(["not_configured", "invalid", "ready", "incompatible"]).toContain(sdk.state);
+      expect(sdk.documentationVersion).toBe("1.0.2");
+      expect(item.text).not.toContain(process.cwd());
+    } finally { await client.close(); }
+  });
+
+  it("rejects arbitrary resource URIs, unsupported versions, queries and traversal", async () => {
+    for (const mode of ["legacy", "modern"] as const) {
+      const client = await connectClient(mode);
+      try {
+        for (const uri of [
+          "gungnir://docs/1.0.3/grammar",
+          "gungnir://docs/1.0.2/nonexistent",
+          "gungnir://docs/1.0.2/grammar?file=private",
+          "gungnir://docs/1.0.2/%2e%2e",
+          "file:///etc/passwd"
+        ]) {
+          let rejected = false;
+          try {
+            const response = await client.readResource({ uri });
+            rejected = !response.contents?.length;
+          } catch { rejected = true; }
+          expect(rejected).toBe(true);
+        }
+        // An invalid resource read must not terminate or corrupt the session.
+        const healthy = await client.readResource({ uri: "gungnir://docs/1.0.2/model" });
+        expect(healthy.contents).toHaveLength(1);
+      } finally { await client.close(); }
+    }
+  });
+
   it("exits cleanly when the client closes stdin (EOF)", async () => {
     const child = spawn(process.execPath, [entry], {
       cwd: process.cwd(),
