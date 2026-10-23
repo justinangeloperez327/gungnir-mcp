@@ -1,21 +1,22 @@
-# Architecture — Group 3
+# Architecture — Group 4
 
 ```text
-MCP client -> stdio JSON-RPC -> CLI/env/Zod startup config
-                                   |
-                         canonical trusted roots
-                                   |
-                           serveStdio(server)
-                                   |
-                         gungnir_status (read-only)
-
-Future: SDK discovery, guarded reads, compiler checks, generators, builds
+MCP client
+  |
+  +-- stdio transport / modern + legacy MCP
+  |
+  +-- validated startup project trust (optional)
+  |
+  +-- gungnir_status (no native probing)
+  |
+  +-- gungnir_toolchain_info (on demand, no input)
+       |
+       +-- validated SDK root override or absolute PATH lookup
+       +-- CLI / compiler / CMake, fixed --version probes
+       +-- share/gungnir/sdk.txt (SDK profile + adapters)
+       +-- structured results + redacted diagnostics
 ```
 
-SDK v2 handles legacy/modern MCP negotiation, framing, and client EOF; SIGINT/SIGTERM close the session idempotently.
+No Gungnir application code is loaded, compiled or executed. The toolchain probe has no dependency on an explicitly trusted project directory. Paths and raw CLI output remain private; only profile, version, enabled capabilities and generic diagnostics reach the MCP client.
 
-Group 3 validates startup arguments, canonicalizes project/trusted roots with `realpath`, checks path-segment containment, and denies untrusted configurations before accepting MCP requests.
-
-When no project is configured, the server continues in project-access-disabled mode. `gungnir_status` exposes the state but never the path. The current file resolution helper is for existing project paths only, not mutating or race-prone execution.
-
-See [Configuration](configuration.md) and [Security](security.md).
+The existing `serveStdio` MCP SDK v2 adapter supports both protocol eras, EOF handling and graceful signal shutdown. See [Toolchain discovery](toolchain.md), [Configuration](configuration.md), [Security](security.md) and [Roadmap](roadmap.md).

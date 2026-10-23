@@ -3,8 +3,8 @@
 1. **Foundation — complete** — Node.js 24, TypeScript, MCP SDK v2, Zod v4, strict lint, Vitest, esbuild, docs, CI.
 2. **MCP Protocol — complete** — stdio lifecycle, legacy/modern compatibility, shutdown, EOF and real-client tests.
 3. **Configuration & Trust — complete** — CLI/env settings, trusted roots, canonical path containment and security tests.
-4. **Native Toolchain Discovery — next** — Gungnir CLI, compiler, SDK and CMake detection.
-5. **Secure Process Runner** — allowlists, timeouts, cancellation and output limits.
+4. **Native Toolchain Discovery — complete** — read-only discovery of CLI, compiler, installed SDK profile/adapters, version mismatches and CMake with platform tests.
+5. **Secure Process Runner — next** — allowlisted native development commands, timeouts, cancellation, environment and output limits.
 6. **Project Intelligence** — structured and legacy profiles and module discovery.
 7. **Compiler Validation** — syntax and semantic checks.
 8. **IR & Diagnostics** — verify IR and normalize diagnostics.

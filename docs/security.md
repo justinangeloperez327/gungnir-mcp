@@ -1,20 +1,22 @@
 # Security policy and project boundaries
 
-## Implemented through Group 3
+## Implemented through Group 4
 
-- Local stdio transport only; no HTTP listener or arbitrary shell.
-- Zod v4 validates startup configuration; the current directory is never implicitly trusted.
-- An explicitly configured project requires explicitly configured trusted roots (max 16). Roots must be existing absolute directories.
-- Canonical `realpath`-based project containment blocks directory-prefix and symlink-root escapes.
-- Existing path resolution rejects traversal, absolute/drive/UNC/ADS-style paths, missing targets and symlink/junction escapes.
-- Trust originates only from operator-provided startup flags and environment settings, never MCP tool-call arguments.
-- The sole read-only `gungnir_status` tool reports trust state, not paths, files or secrets.
-- Protocol errors stay in-band; diagnostics are emitted to stderr, never stdout.
-- No file writes, native builds, migrations, shell commands, credentials or database access.
-- CI stores artifacts only; it does not deploy or publish.
+- Local stdio transport only. No HTTP listener or arbitrary shell.
+- Zod-validated startup project configuration; current directory not implicitly trusted.
+- Existing canonical project-root allowlist and project-path symlink checks from Group 3.
+- New read-only `gungnir_toolchain_info` tool accepts no path, command or executable arguments from the MCP client.
+- Native discovery selects only `gungnir`, `gungnirc`, and `cmake` as regular files, skips empty/relative PATH entries and never executes `.cmd` or `.bat` wrappers.
+- Executable inspection uses fixed `--version` args via `execFile` without a shell, with a timeout, output cap, constrained environment and temporary working directory.
+- SDK profile and adapters come from the installed, size-limited `share/gungnir/sdk.txt` manifest; no inferred capabilities.
+- No paths or raw subprocess errors are returned to MCP clients. Error messages are generic.
+- No compiler checks, application builds, file writes, migrations or database calls.
+- CI does not publish or deploy.
 
-## Remaining controls
+## Trust caveats
 
-`realpath` is not a race-free guarantee if files or symlinks are concurrently changed. Before enabling native Gungnir execution or mutation, implement per-command argument allowlists, scoped file handles or equivalent stronger containment, controlled environments, timeouts, output limits and explicit write/execute approval. Do not expose an unrestricted process runner.
+Reading binary version output requires *executing the binary's version handler*. A compromised or malicious executable on PATH or in an operator-specified SDK can perform side effects beyond the MCP server's control. Install trusted SDKs and keep PATH entries trusted. The MCP server is not an OS sandbox.
 
-Report vulnerabilities privately using GitHub vulnerability reporting where enabled.
+Canonical filesystem checks alone are not race-free if a project mutates symlinks concurrently. Before enabling native application operations, Group 5 must add explicit allowlists, scoped executable selection, cancellation, bounded output, environment restrictions and separate permission gates for writes and builds.
+
+Report vulnerabilities privately through GitHub's vulnerability reporting feature when enabled.

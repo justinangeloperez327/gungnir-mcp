@@ -4,13 +4,13 @@
 
 **Gungnir MCP Server** integrates the [Gungnir](https://github.com/justinangeloperez327/gungnir) C++23 framework and `.gnr` language with MCP hosts.
 
-> **Group 3 / developer preview (0.3.0).** Local stdio server supporting legacy and modern MCP, validated configuration and fail-closed project trust. Only `gungnir_status` is exposed; native compiler, build and code generation are not yet available.
+> **Group 4 / developer preview (0.4.0).** Includes local stdio MCP (legacy and modern protocols), validated trusted project roots, and **read-only native toolchain discovery**. Compiler checking, project builds and code generation are **not yet available**.
 
 ## Requirements
 
-- Node.js **24** with npm
-- An MCP client supporting local stdio
-- Gungnir SDK is not required until later groups
+- Node.js **24** and npm
+- An MCP host supporting stdio
+- Gungnir SDK and CMake are optional for starting the MCP server; discovery reports missing installations
 
 ## Development
 
@@ -23,22 +23,33 @@ npm test
 npm run pack:check
 ```
 
-Launch with `node dist/index.js`, or use `npx @modelcontextprotocol/inspector node dist/index.js`.
-
-## Optional explicit project trust
-
-No working directory is trusted implicitly. You can configure a project and its trusted parent directory for future capabilities:
+To connect via MCP Inspector:
 
 ```bash
-node dist/index.js --project-root "/home/dev/inventory" --trusted-root "/home/dev"
+npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
-Alternatively use the environment variables `GUNGNIR_MCP_PROJECT_ROOT` and `GUNGNIR_MCP_TRUSTED_ROOTS`. Repeat `--trusted-root` for additional allowlist entries. Environment trusted-root entries use the platform's path delimiter (`:` on Linux, `;` on Windows). CLI trust flags replace environment trust roots.
+The process uses stdout exclusively for JSON-RPC messages. Do not run it as an interactive shell program.
 
-Missing/invalid trust causes startup failure on stderr. The current status tool reports `projectAccess: "disabled" | "trusted"` without revealing any root path. Trust **does not** enable native execution or mutations.
+## Tools
 
-See [Configuration](docs/configuration.md), [Security](docs/security.md), [Architecture](docs/architecture.md), [Setup](docs/setup.md), [Protocol](docs/protocol.md), and [Roadmap](docs/roadmap.md).
+- `gungnir_status`: the protocol/server version, group, capabilities and whether a project was explicitly trusted. It does not probe native tools.
+- `gungnir_toolchain_info`: an on-demand, no-argument, **read-only discovery** operation. It locates `gungnir`, `gungnirc`, `cmake`, reads `share/gungnir/sdk.txt`, and issues **only** fixed `--version` commands. Returns versions, SDK profile, enabled adapters, compatibility status and redacted diagnostic messages, without absolute paths.
 
-CI verifies Node 24 builds and tests on Ubuntu 24.04 and Windows 2025. No automatic npm publishing or deployment.
+The discovery operation executes the installed binaries to obtain version banners. Only configure toolchains from sources you trust.
 
-MIT License.
+## Toolchain selection
+
+Use `GUNGNIR_MCP_SDK_ROOT` to select an installed SDK directory explicitly. Otherwise an absolute `GUNGNIR_CMAKE_PREFIX` takes precedence, then the absolute directories listed in `PATH` are searched. An invalid explicit override **does not silently fall back** to another installation. `cmake` is resolved from `PATH` separately.
+
+See [Toolchain discovery](docs/toolchain.md) for compatibility and security details.
+
+## Optional project trust
+
+No project directory is implicitly trusted. Explicit project access requires both `--project-root` and `--trusted-root` (or their environment counterparts); see [Configuration](docs/configuration.md). Trust does not grant build or write permissions.
+
+## Documentation
+
+[Toolchain discovery](docs/toolchain.md) · [Architecture](docs/architecture.md) · [Configuration](docs/configuration.md) · [Security](docs/security.md) · [Setup](docs/setup.md) · [Protocol](docs/protocol.md) · [Roadmap](docs/roadmap.md)
+
+CI runs on Node.js 24 with Ubuntu 24.04 and Windows 2025 and uploads build artifacts. It does **not** publish an npm package or deploy services. MIT License.

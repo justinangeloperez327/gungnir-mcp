@@ -42,3 +42,7 @@ node dist/index.js
 **Security boundary:** this is not a race-free file sandbox. Do not use it alone to authorize writes, execute code, or inspect sensitive paths in a concurrently mutable workspace. Later groups must combine validated handles, fresh checks and command-specific permissions. An operator allowlist is not permission for an AI tool to execute or mutate arbitrary files.
 
 `gungnir_status` only returns whether access is disabled or trusted; project paths are never returned.
+
+## Native SDK discovery configuration (Group 4)
+
+Toolchain discovery is independent of project trust. Set `GUNGNIR_MCP_SDK_ROOT` or `GUNGNIR_CMAKE_PREFIX` to an existing absolute Gungnir SDK root, or use a trusted `PATH`. A configured override is strict; it does not fall back to another Gungnir executable found on PATH. See [Toolchain discovery](toolchain.md).
