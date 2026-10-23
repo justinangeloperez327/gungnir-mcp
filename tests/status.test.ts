@@ -7,7 +7,7 @@ describe("Group 4 status", () => {
     const status = foundationStatus();
     expect(status.name).toBe(SERVER_NAME);
     expect(status.version).toBe(SERVER_VERSION);
-    expect(status.implementationGroup).toBe(3);
+    expect(status.implementationGroup).toBe(4);
     expect(status.capabilities).toEqual(["gungnir_status", "gungnir_toolchain_info"]);
     expect(status.nativeCliAvailable).toBe("not-checked");
     expect(status.projectMutationEnabled).toBe(false);
