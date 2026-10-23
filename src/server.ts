@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 
+import { checkGungnir } from "./compiler-check.js";
 import { disabledRuntimeConfig } from "./config.js";
 import type { RuntimeConfig } from "./config.js";
 import { listProjectModules, scanProject, summarizeProject } from "./project.js";
@@ -60,6 +61,24 @@ export function createServer(config: RuntimeConfig = disabledRuntimeConfig()): M
       } catch {
         return { isError: true, content: [{ type: "text", text: "Project inspection denied or unavailable" }] };
       }
+    }
+  );
+
+
+  server.registerTool(
+    "gungnir_check",
+    {
+      description: "Validate a trusted structured Gungnir project or a single indexed .gnr source using native gungnirc --check. Never builds or generates files.",
+      inputSchema: z.strictObject({
+        file: z.string().max(256).optional()
+      })
+    },
+    async ({ file }) => {
+      const result = await checkGungnir(config, file);
+      return {
+        isError: result.state !== "valid",
+        content: [{ type: "text" as const, text: JSON.stringify(result) }]
+      };
     }
   );
 

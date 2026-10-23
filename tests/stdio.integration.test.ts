@@ -10,7 +10,7 @@ type ProtocolMode = "legacy" | "modern";
 
 async function connectClient(mode: ProtocolMode, args: string[] = []): Promise<Client> {
   const client = new Client(
-    { name: "gungnir-integration-test", version: "0.6.0" },
+    { name: "gungnir-integration-test", version: "0.7.0" },
     { versionNegotiation: { mode: mode === "legacy" ? "legacy" : { pin: "2026-07-28" } } }
   );
   const transport = new StdioClientTransport({
@@ -35,6 +35,7 @@ async function assertStatus(client: Client): Promise<void> {
   expect(tools.tools.map((tool) => tool.name)).toContain("gungnir_toolchain_info");
   expect(tools.tools.map((tool) => tool.name)).toContain("gungnir_project_info");
   expect(tools.tools.map((tool) => tool.name)).toContain("gungnir_list_modules");
+  expect(tools.tools.map((tool) => tool.name)).toContain("gungnir_check");
 
   const result = await client.callTool({ name: "gungnir_status", arguments: {} });
   expect(result.isError).not.toBe(true);
@@ -44,8 +45,8 @@ async function assertStatus(client: Client): Promise<void> {
   const status: unknown = JSON.parse(content.text);
   expect(status).toMatchObject({
     name: "gungnir-mcp",
-    version: "0.6.0",
-    implementationGroup: 6,
+    version: "0.7.0",
+    implementationGroup: 7,
     nativeCliAvailable: "not-checked",
     projectMutationEnabled: false,
     projectAccess: "disabled"

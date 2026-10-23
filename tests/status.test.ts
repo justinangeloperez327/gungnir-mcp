@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { foundationStatus, SERVER_NAME, SERVER_VERSION } from "../src/status.js";
 
-describe("Group 6 status", () => {
+describe("Group 7 status", () => {
   it("reports truthful group identity and unimplemented project mutations", () => {
     const status = foundationStatus();
     expect(status.name).toBe(SERVER_NAME);
     expect(status.version).toBe(SERVER_VERSION);
-    expect(status.implementationGroup).toBe(6);
-    expect(status.capabilities).toEqual(["gungnir_status", "gungnir_toolchain_info", "gungnir_project_info", "gungnir_list_modules"]);
+    expect(status.implementationGroup).toBe(7);
+    expect(status.capabilities).toEqual(["gungnir_status", "gungnir_toolchain_info", "gungnir_project_info", "gungnir_list_modules", "gungnir_check"]);
     expect(status.nativeCliAvailable).toBe("not-checked");
     expect(status.projectMutationEnabled).toBe(false);
     expect(status.projectAccess).toBe("disabled");
