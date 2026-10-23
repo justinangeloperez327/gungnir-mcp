@@ -1,46 +1,41 @@
 import { spawn } from "node:child_process";
-import { realpath, stat } from "node:fs/promises";
+import { lstat, realpath, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, isAbsolute } from "node:path";
+import { basename, isAbsolute, relative, sep } from "node:path";
 
 export type NativeTool = "gungnir" | "gungnirc" | "cmake";
-export type NativeOperation = "version";
+export type NativeOperation = "version" | "check_project" | "check_file";
 export type NativeFailure = "invalid_input" | "cancelled" | "timeout" |
   "output_limit" | "spawn_failed" | "nonzero_exit";
 
 export type NativeResult =
   | { readonly ok: true; readonly stdout: string; readonly stderr: string; readonly exitCode: 0 }
-  | { readonly ok: false; readonly reason: NativeFailure; readonly exitCode: number | null };
+  | { readonly ok: false; readonly reason: NativeFailure; readonly exitCode: number | null;
+      readonly diagnosticText?: string };
 
-export interface NativeRequest {
+interface RequestBase {
   readonly executable: string;
-  readonly tool: NativeTool;
-  readonly operation: NativeOperation;
   readonly signal?: AbortSignal;
   readonly timeoutMs?: number;
   readonly maxOutputBytes?: number;
 }
+export type NativeRequest =
+  | (RequestBase & { readonly tool: NativeTool; readonly operation: "version" })
+  | (RequestBase & { readonly tool: "gungnirc"; readonly operation: "check_project"; readonly projectRoot: string })
+  | (RequestBase & { readonly tool: "gungnirc"; readonly operation: "check_file"; readonly projectRoot: string;
+       readonly sourceFile: string; readonly compatibility?: boolean });
 
-const ALLOWED: Readonly<Record<NativeTool, Readonly<Record<NativeOperation, readonly string[]>>>> = {
-  gungnir: { version: ["--version"] },
-  gungnirc: { version: ["--version"] },
-  cmake: { version: ["--version"] }
-};
+const VERSION_TIMEOUT = 3_000;
+const CHECK_TIMEOUT = 10_000;
+const VERSION_OUTPUT = 8_192;
+const CHECK_OUTPUT = 32_768;
+const MAX_CHECK_TIMEOUT = 30_000;
+const MAX_OUTPUT = 65_536;
 
-const DEFAULT_TIMEOUT = 3_000;
-const DEFAULT_OUTPUT_LIMIT = 8_192;
-const MAX_TIMEOUT = 10_000;
-const MAX_OUTPUT_LIMIT = 65_536;
-
-/**
- * Explicit, small environment allowlist. No inherited credentials, npm scripts,
- * shell controls, preload hooks, or dynamic library injection variables.
- */
+/** Do not inherit credentials, npm hooks, loader/preload injections, or app configuration. */
 export function isolatedNativeEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
-  const allowed = new Set([
-    "path", "systemroot", "windir", "temp", "tmp", "home", "userprofile"
-  ]);
+  const allowed = new Set(["path", "systemroot", "windir", "temp", "tmp", "home", "userprofile"]);
   for (const [name, value] of Object.entries(source)) {
     if (allowed.has(name.toLowerCase()) && value !== undefined && !value.includes("\0")) {
       env[name] = value;
@@ -55,9 +50,7 @@ async function validateExecutable(path: string, tool: NativeTool): Promise<strin
     const canonical = await realpath(path);
     const expected = tool + (process.platform === "win32" ? ".exe" : "");
     const actual = basename(canonical);
-    if (process.platform === "win32" ? actual.toLowerCase() !== expected : actual !== expected) {
-      return null;
-    }
+    if (process.platform === "win32" ? actual.toLowerCase() !== expected : actual !== expected) return null;
     const info = await stat(canonical);
     if (!info.isFile() || (process.platform !== "win32" && (info.mode & 0o111) === 0)) return null;
     return canonical;
@@ -65,59 +58,84 @@ async function validateExecutable(path: string, tool: NativeTool): Promise<strin
     return null;
   }
 }
-
-function validLimit(n: number | undefined, fallback: number, max: number): number | null {
-  const value = n ?? fallback;
-  return Number.isSafeInteger(value) && value > 0 && value <= max ? value : null;
+function contained(root: string, candidate: string): boolean {
+  const rest = relative(root, candidate);
+  return rest === "" || (rest !== ".." && !rest.startsWith(".." + sep) && !isAbsolute(rest));
 }
-
-/** Terminate the direct child; on POSIX also terminate its process group. */
+async function validateCheckRoot(root: string): Promise<string | null> {
+  if (!isAbsolute(root) || root.includes("\0")) return null;
+  try {
+    const canonical = await realpath(root);
+    const st = await lstat(root);
+    return canonical === root && st.isDirectory() && !st.isSymbolicLink() ? root : null;
+  } catch { return null; }
+}
+async function validateCheckFile(root: string, file: string): Promise<string | null> {
+  if (!isAbsolute(file) || !file.endsWith(".gnr") || file.includes("\0") || !contained(root, file)) return null;
+  try {
+    const canonical = await realpath(file);
+    const st = await lstat(file);
+    return canonical === file && contained(root, canonical) && st.isFile() && !st.isSymbolicLink()
+      ? canonical : null;
+  } catch { return null; }
+}
+function validLimit(value: number | undefined, fallback: number, max: number): number | null {
+  const v = value ?? fallback;
+  return Number.isSafeInteger(v) && v > 0 && v <= max ? v : null;
+}
 function terminate(pid: number | undefined, kill: () => boolean): void {
   if (process.platform !== "win32" && pid !== undefined && pid > 0) {
     try { process.kill(-pid, "SIGKILL"); return; } catch { /* fall back to direct child */ }
   }
-  try { kill(); } catch { /* process already stopped */ }
+  try { kill(); } catch { /* already stopped */ }
 }
 
-/**
- * Group 5 supports only fixed --version probes. No caller-controlled argv,
- * cwd, shell or environment. All errors are structured and redact raw output.
- * Internal caller-supplied signals, timeouts and output limits are bounded.
- */
+/** Strict allowlist. The request does not accept arbitrary argv, cwd, shell or env. */
 export async function runAllowedNative(request: NativeRequest): Promise<NativeResult> {
-  if (!request || !Object.hasOwn(ALLOWED, request.tool) || request.operation !== "version") {
-    return { ok: false, reason: "invalid_input", exitCode: null };
-  }
-  const timeout = validLimit(request.timeoutMs, DEFAULT_TIMEOUT, MAX_TIMEOUT);
-  const limit = validLimit(request.maxOutputBytes, DEFAULT_OUTPUT_LIMIT, MAX_OUTPUT_LIMIT);
-  if (timeout === null || limit === null) return { ok: false, reason: "invalid_input", exitCode: null };
+  const denied: NativeResult = { ok: false, reason: "invalid_input", exitCode: null };
+  if (!request || !["gungnir", "gungnirc", "cmake"].includes(request.tool)) return denied;
+  const check = request.operation === "check_project" || request.operation === "check_file";
+  if (request.operation !== "version" && !check) return denied;
+  if (check && request.tool !== "gungnirc") return denied;
+  const timeout = validLimit(request.timeoutMs, check ? CHECK_TIMEOUT : VERSION_TIMEOUT,
+    check ? MAX_CHECK_TIMEOUT : 10_000);
+  const limit = validLimit(request.maxOutputBytes, check ? CHECK_OUTPUT : VERSION_OUTPUT, MAX_OUTPUT);
+  if (timeout === null || limit === null) return denied;
   if (request.signal?.aborted) return { ok: false, reason: "cancelled", exitCode: null };
   const executable = await validateExecutable(request.executable, request.tool);
-  if (!executable) return { ok: false, reason: "invalid_input", exitCode: null };
+  if (!executable) return denied;
+  let args: string[] = ["--version"];
+  if (request.operation === "check_project") {
+    const root = await validateCheckRoot(request.projectRoot);
+    if (!root) return denied;
+    args = ["--project", root, "--check"];
+  } else if (request.operation === "check_file") {
+    const root = await validateCheckRoot(request.projectRoot);
+    if (!root) return denied;
+    const source = await validateCheckFile(root, request.sourceFile);
+    if (!source) return denied;
+    args = [source, "--check"];
+    if (request.compatibility === true) args.push("--compat");
+    else if (request.compatibility !== undefined && request.compatibility !== false) return denied;
+  }
   if (request.signal?.aborted) return { ok: false, reason: "cancelled", exitCode: null };
-
-  return await new Promise<NativeResult>((done) => {
+  return await new Promise<NativeResult>(done => {
     let child: ReturnType<typeof spawn>;
     try {
-      child = spawn(executable, [...ALLOWED[request.tool].version], {
-        shell: false,
-        windowsHide: true,
-        detached: process.platform !== "win32",
-        cwd: tmpdir(),
-        env: isolatedNativeEnvironment(),
+      child = spawn(executable, args, {
+        shell: false, windowsHide: true, detached: process.platform !== "win32",
+        cwd: tmpdir(), env: isolatedNativeEnvironment(),
         stdio: ["ignore", "pipe", "pipe"]
       });
     } catch {
       done({ ok: false, reason: "spawn_failed", exitCode: null });
       return;
     }
-
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     let bytes = 0;
     let failure: NativeFailure | undefined;
     let completed = false;
-
     const failAndStop = (reason: NativeFailure): void => {
       if (completed || failure) return;
       failure = reason;
@@ -128,35 +146,26 @@ export async function runAllowedNative(request: NativeRequest): Promise<NativeRe
       if (failure || completed) return;
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       bytes += buffer.byteLength;
-      if (bytes > limit) {
-        failAndStop("output_limit");
-      } else {
-        target.push(buffer);
-      }
+      if (bytes > limit) failAndStop("output_limit");
+      else target.push(buffer);
     };
-
-    const timeoutHandle = setTimeout(() => { failAndStop("timeout"); }, timeout);
-
+    const timer = setTimeout(() => failAndStop("timeout"), timeout);
     child.stdout?.on("data", (chunk: Buffer) => record(chunk, stdout));
     child.stderr?.on("data", (chunk: Buffer) => record(chunk, stderr));
-    child.once("error", () => { failAndStop("spawn_failed"); });
+    child.once("error", () => failAndStop("spawn_failed"));
     child.once("close", (code: number | null) => {
       completed = true;
-      clearTimeout(timeoutHandle);
+      clearTimeout(timer);
       request.signal?.removeEventListener("abort", onAbort);
-      if (failure) {
-        done({ ok: false, reason: failure, exitCode: code });
-      } else if (code !== 0) {
-        done({ ok: false, reason: "nonzero_exit", exitCode: code });
-      } else {
-        done({
-          ok: true, stdout: Buffer.concat(stdout).toString("utf8"),
-          stderr: Buffer.concat(stderr).toString("utf8"), exitCode: 0
-        });
-      }
+      if (failure) done({ ok: false, reason: failure, exitCode: code });
+      else if (code !== 0) {
+        // Only compiler-check operations can pass bounded stderr to the internal parser.
+        if (check) done({ ok: false, reason: "nonzero_exit", exitCode: code,
+          diagnosticText: Buffer.concat(stderr).toString("utf8") });
+        else done({ ok: false, reason: "nonzero_exit", exitCode: code });
+      } else done({ ok: true, stdout: Buffer.concat(stdout).toString("utf8"),
+        stderr: Buffer.concat(stderr).toString("utf8"), exitCode: 0 });
     });
-
-    // Attach after close handling so early failures are still reaped.
     request.signal?.addEventListener("abort", onAbort, { once: true });
     if (request.signal?.aborted) onAbort();
   });
