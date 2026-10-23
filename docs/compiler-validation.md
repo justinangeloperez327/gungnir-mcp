@@ -71,3 +71,7 @@ The tool marks nonvalid states with `isError: true` in the MCP response while re
 ## Validation evidence and scope
 
 CI tests the compiler service with injected, deterministic native-runner results; it also exercises `gungnir_check` over real legacy and modern MCP stdio connections, including untrusted roots and path traversal. The existing runner/security suites cover timeouts, output limits and cancellation. Neither CI platform requires a production-installed Gungnir SDK; validating native `.gnr` semantics against actual release binaries requires a separate SDK integration test in a later group.
+
+## Group 8 diagnostics hardening
+
+Group 8 changes the display of compiler diagnostic messages from loosely scrubbed native text to predefined, privacy-preserving issue categories. GNR code, severity, file (only when matched to an indexed relative module path), line and column are preserved. Unquoted source symbols, sensitive compiler text, caret excerpts and native help lines are never forwarded. The shared parser is used by both `gungnir_check` and [`gungnir_verify_ir`](ir-verification.md). Native IR verifier failure descriptions are counted only.

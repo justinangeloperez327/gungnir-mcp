@@ -7,8 +7,8 @@
 5. **Secure Process Runner — complete** — fixed version-command allowlists, validated executables, cancellation, timeouts, bounded output and environment isolation. No build/run/write operations.
 6. **Project Intelligence — complete** — trusted read-only structured/legacy profile inspection, bounded module listing, structural diagnostics and sensitive-path exclusions.
 7. **Compiler Validation — complete** — trusted structured-project and indexed-file \`gungnirc --check\`, safe process controls, normalized error metadata, cross-platform MCP tests.
-8. **IR & Diagnostics — next** — verify IR and normalize diagnostics.
-9. **Documentation Resources** — grammar and guides.
+8. **IR & Diagnostics — complete** — trusted `--verify-ir` for structured project/files, privacy-safe diagnostic categories, verifier issue counting and cross-platform MCP security regression tests.
+9. **Documentation Resources — next** — grammar and guides.
 10. **Documentation Search** — versioned offline index.
 11. **MCP Prompts** — scaffolding, debugging and review.
 12. **Generation Planning** — safe previews and dependency detection.

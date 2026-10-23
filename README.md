@@ -4,7 +4,7 @@
 
 A Model Context Protocol (MCP) server for the [Gungnir](https://github.com/justinangeloperez327/gungnir) C++23 web framework and its `.gnr` language.
 
-**Developer preview: Group 7, version 0.7.0.** Local stdio server supporting modern and legacy MCP protocols, trusted project configuration, native SDK discovery, structural project intelligence, and **native compiler validation via `gungnirc --check`**. Application builds, C++ generation, migrations and file mutations remain unavailable.
+**Developer preview: Group 8, version 0.8.0.** Local stdio server supporting modern and legacy MCP protocols, trusted project configuration, native SDK discovery, structural project intelligence, and **native compiler validation via `gungnirc --check`** and **read-only C++ IR verification via `gungnirc --verify-ir`**. Application builds, C++ generation, migrations and file mutations remain unavailable.
 
 ## Requirements
 
@@ -40,10 +40,11 @@ An MCP stdio server waits for client messages and reserves stdout for protocol t
 | `gungnir_project_info` | Trusted Gungnir project marker/profile, structure and counts |
 | `gungnir_list_modules` | Bounded relative `.gnr` module listing |
 | `gungnir_check` | Native structured project or single-file `--check` validation with structured diagnostic results |
+| `gungnir_verify_ir` | Structured-project or indexed-source C++ IR verification; returns metadata and redacted verifier results |
 
 Calling `gungnir_check` with `{}` validates an explicitly trusted **structured** project. With `{"file":"app/models/User.gnr"}`, it checks one indexed, project-relative file, using compatibility mode when the project is legacy. Compiler errors return codes, locations and sanitized messages, not raw source excerpts or absolute paths.
 
-Only fixed `gungnirc --check` operations are permitted. No caller-supplied compiler flags, executable paths, output targets or working directories are accepted.
+Only fixed `gungnirc --check` and `gungnirc --verify-ir` operations are permitted. No caller-supplied compiler flags, executable paths, output targets or working directories are accepted.
 
 ## SDK selection and security
 
@@ -51,6 +52,6 @@ Select the trusted SDK using `GUNGNIR_MCP_SDK_ROOT`, or `GUNGNIR_CMAKE_PREFIX`, 
 
 **Important:** Native compilation checks necessarily read trusted source files and execute a local `gungnirc` binary. Only enable them for projects and toolchains you trust. Canonical filesystem checks and bounded scans are not a race-free OS sandbox.
 
-Read [Compiler validation](docs/compiler-validation.md), [Process runner](docs/process-runner.md), [Project intelligence](docs/project-intelligence.md), [Configuration](docs/configuration.md), [Security](docs/security.md) and the [16-group roadmap](docs/roadmap.md).
+Read [IR verification](docs/ir-verification.md), [Compiler validation](docs/compiler-validation.md), [Process runner](docs/process-runner.md), [Project intelligence](docs/project-intelligence.md), [Configuration](docs/configuration.md), [Security](docs/security.md) and the [16-group roadmap](docs/roadmap.md).
 
 CI uses Node.js 24 on Windows 2025 and Ubuntu 24.04. **No automatic npm publication or deployment.** MIT license.

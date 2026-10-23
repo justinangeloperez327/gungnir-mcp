@@ -38,3 +38,7 @@ See [Project intelligence](project-intelligence.md) for API examples and limitat
 ## Group 7 read-only compiler validation
 
 A caller invokes `gungnir_check` with `{}` for a structured project or `{ "file": "app/models/User.gnr" }` for a safe indexed source file. Before invoking the native binary, the compiler-check service rechecks configured trust and the bounded project scanner, rejects symlinks and incomplete scans, and locates `gungnirc` through the strict SDK selection precedence. It passes only typed check operations through the shared restricted process runner. Compiler diagnostic headers are normalized to code/severity/relative path/position and sanitized message; raw output is not returned. No build, generation or mutation API exists. See [Compiler validation](compiler-validation.md).
+
+## Group 8 C++ IR verification
+
+`gungnir_verify_ir` reuses the Group 7 trusted project scan, compiler discovery, executable validation and bounded subprocess controls, but invokes dedicated fixed IR operations (`verify_ir_project` or `verify_ir_file`) instead of `--check`. IR verification is available only for structured profiles: legacy `--compat` is deliberately rejected because the native compiler disallows it with `--verify-ir`. Both tools use the shared structured diagnostics parser; untrusted path references become `null`, messages are categorized rather than echoed, and native IR verifier issue lines are counted without exposing their contents. No generated IR/C++ is returned or written. See [IR verification](ir-verification.md).

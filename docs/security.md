@@ -1,6 +1,6 @@
 # Security policy and project boundaries
 
-## Implemented through Group 7
+## Implemented through Group 8
 
 - Local stdio transport only. No HTTP listener or arbitrary shell.
 - Zod-validated startup project configuration; current directory not implicitly trusted.
@@ -17,6 +17,8 @@
 - Every discovered module path is validated as a safe, relative `.gnr` filename with bounded tree traversal (2,048 entries, 12 levels, 200 modules).
 - Group 7 allows only fixed `gungnirc --project <root> --check` for structured projects and `gungnirc <indexed-file> --check` for individual files (plus `--compat` for legacy files). No native application build, output target or file mutation is enabled.
 - Checks require explicit project trust, a complete safe module scan, and canonical source/executable containment. Raw compiler output and source excerpts are not forwarded; only bounded normalized diagnostic headers are returned.
+- Group 8 adds only fixed structured-project and structured-file `--verify-ir` commands. The native CLI rejects combinations with `--check`, `--compat`, formatting, dumps and output paths; these combinations are not exposed by the runner.
+- Diagnostic text from a trusted native compiler is never forwarded verbatim: GNR severity, code and coordinates are kept while messages become safe predefined categories. Verifier issue text is counted, not displayed.
 - No application builds, file writes, migrations or database calls.
 - CI does not publish or deploy.
 
