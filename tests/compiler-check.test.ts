@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkGungnir, normalizeCompilerDiagnostics } from "../src/compiler-check.js";
 import { loadRuntimeConfig } from "../src/config.js";
 import type { RuntimeConfig } from "../src/config.js";
-import type { NativeRequest, NativeResult } from "../src/process-runner.js";
+import type { NativeResult } from "../src/process-runner.js";
 import { scanProject } from "../src/project.js";
 
 let root: string;
@@ -35,7 +35,7 @@ afterEach(async () => {
 });
 
 function fake(result: NativeResult) {
-  const execute = vi.fn(async (_request: NativeRequest): Promise<NativeResult> => result);
+  const execute = vi.fn(async (): Promise<NativeResult> => result);
   return {
     execute,
     locate: vi.fn(async () => compiler)
