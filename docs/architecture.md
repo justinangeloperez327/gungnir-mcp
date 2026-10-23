@@ -42,3 +42,7 @@ A caller invokes `gungnir_check` with `{}` for a structured project or `{ "file"
 ## Group 8 C++ IR verification
 
 `gungnir_verify_ir` reuses the Group 7 trusted project scan, compiler discovery, executable validation and bounded subprocess controls, but invokes dedicated fixed IR operations (`verify_ir_project` or `verify_ir_file`) instead of `--check`. IR verification is available only for structured profiles: legacy `--compat` is deliberately rejected because the native compiler disallows it with `--verify-ir`. Both tools use the shared structured diagnostics parser; untrusted path references become `null`, messages are categorized rather than echoed, and native IR verifier issue lines are counted without exposing their contents. No generated IR/C++ is returned or written. See [IR verification](ir-verification.md).
+
+## Group 9 MCP resources
+
+`createServer()` registers immutable, exact URI resources via MCP SDK v2 `registerResource`. A pinned official Gungnir `v1.0.2` snapshot (`src/official-docs.ts`) is built directly into the packaged JavaScript, enabling offline doc reads with SHA-1 Git blob integrity checks. A fixed catalog exposes authoritative source commit and document URIs. The SDK capabilities resource is dynamic but reads only an operator-selected absolute SDK marker under `share/gungnir/sdk.txt`, with bounded file handles, symlink-escape checks and field allowlists. It **never** runs binaries or reveals SDK paths. No URI template or user-selected path is enabled. See [Documentation resources](documentation-resources.md).

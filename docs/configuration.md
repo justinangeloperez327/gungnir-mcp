@@ -52,3 +52,7 @@ Toolchain discovery is independent of project trust. Set `GUNGNIR_MCP_SDK_ROOT` 
 `gungnir_project_info` and `gungnir_list_modules` require both a configured project and explicitly trusted root. With no project, startup still succeeds but either tool returns a generic MCP error without disclosing private paths. Tool arguments cannot override the root or read arbitrary files. Scans recheck root trust and avoid symlink following.
 
 Relative `.gnr` file paths and sanitized module names are returned; source-file content is not read. Even metadata can reveal project details, so only configure projects intended for the connected MCP client. See [Project intelligence](project-intelligence.md).
+
+## Official docs and SDK resources (Group 9)
+
+Version-pinned `gungnir://docs/1.0.2/*` documentation resources need no project root, SDK installation, internet connection, API key, or native compiler. The SDK resource reads a local manifest only when an operator sets `GUNGNIR_MCP_SDK_ROOT` or `GUNGNIR_CMAKE_PREFIX` to an existing absolute SDK directory. Strict override precedence is retained; an invalid explicit SDK path will not fall back to PATH, to the working directory, or to a project-provided value. See [Documentation resources](documentation-resources.md).

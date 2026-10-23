@@ -8,8 +8,8 @@
 6. **Project Intelligence — complete** — trusted read-only structured/legacy profile inspection, bounded module listing, structural diagnostics and sensitive-path exclusions.
 7. **Compiler Validation — complete** — trusted structured-project and indexed-file \`gungnirc --check\`, safe process controls, normalized error metadata, cross-platform MCP tests.
 8. **IR & Diagnostics — complete** — trusted `--verify-ir` for structured project/files, privacy-safe diagnostic categories, verifier issue counting and cross-platform MCP security regression tests.
-9. **Documentation Resources — next** — grammar and guides.
-10. **Documentation Search** — versioned offline index.
+9. **Documentation Resources — complete** — 16 exact, tagged official Gungnir docs, fixed MCP resource URIs and catalog, bounded hash-validated reads, and sanitized local SDK capabilities.
+10. **Documentation Search — next** — versioned offline index.
 11. **MCP Prompts** — scaffolding, debugging and review.
 12. **Generation Planning** — safe previews and dependency detection.
 13. **Code Generation** — permission-gated generators.
