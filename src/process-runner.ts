@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { basename, isAbsolute, relative, sep } from "node:path";
 
 export type NativeTool = "gungnir" | "gungnirc" | "cmake";
-export type NativeOperation = "version" | "check_project" | "check_file";
+export type NativeOperation = "version" | "check_project" | "check_file" |
+  "verify_ir_project" | "verify_ir_file";
 export type NativeFailure = "invalid_input" | "cancelled" | "timeout" |
   "output_limit" | "spawn_failed" | "nonzero_exit";
 
@@ -23,7 +24,10 @@ export type NativeRequest =
   | (RequestBase & { readonly tool: NativeTool; readonly operation: "version" })
   | (RequestBase & { readonly tool: "gungnirc"; readonly operation: "check_project"; readonly projectRoot: string })
   | (RequestBase & { readonly tool: "gungnirc"; readonly operation: "check_file"; readonly projectRoot: string;
-       readonly sourceFile: string; readonly compatibility?: boolean });
+       readonly sourceFile: string; readonly compatibility?: boolean })
+  | (RequestBase & { readonly tool: "gungnirc"; readonly operation: "verify_ir_project"; readonly projectRoot: string })
+  | (RequestBase & { readonly tool: "gungnirc"; readonly operation: "verify_ir_file"; readonly projectRoot: string;
+       readonly sourceFile: string });
 
 const VERSION_TIMEOUT = 3_000;
 const CHECK_TIMEOUT = 10_000;
@@ -94,29 +98,33 @@ function terminate(pid: number | undefined, kill: () => boolean): void {
 export async function runAllowedNative(request: NativeRequest): Promise<NativeResult> {
   const denied: NativeResult = { ok: false, reason: "invalid_input", exitCode: null };
   if (!request || !["gungnir", "gungnirc", "cmake"].includes(request.tool)) return denied;
-  const check = request.operation === "check_project" || request.operation === "check_file";
-  if (request.operation !== "version" && !check) return denied;
-  if (check && request.tool !== "gungnirc") return denied;
-  const timeout = validLimit(request.timeoutMs, check ? CHECK_TIMEOUT : VERSION_TIMEOUT,
-    check ? MAX_CHECK_TIMEOUT : 10_000);
-  const limit = validLimit(request.maxOutputBytes, check ? CHECK_OUTPUT : VERSION_OUTPUT, MAX_OUTPUT);
+  const checking = request.operation === "check_project" || request.operation === "check_file";
+  const verifying = request.operation === "verify_ir_project" || request.operation === "verify_ir_file";
+  const compilerOperation = checking || verifying;
+  if (request.operation !== "version" && !compilerOperation) return denied;
+  if (compilerOperation && request.tool !== "gungnirc") return denied;
+  const timeout = validLimit(request.timeoutMs, compilerOperation ? CHECK_TIMEOUT : VERSION_TIMEOUT,
+    compilerOperation ? MAX_CHECK_TIMEOUT : 10_000);
+  const limit = validLimit(request.maxOutputBytes, compilerOperation ? CHECK_OUTPUT : VERSION_OUTPUT, MAX_OUTPUT);
   if (timeout === null || limit === null) return denied;
   if (request.signal?.aborted) return { ok: false, reason: "cancelled", exitCode: null };
   const executable = await validateExecutable(request.executable, request.tool);
   if (!executable) return denied;
   let args: string[] = ["--version"];
-  if (request.operation === "check_project") {
+  if (request.operation === "check_project" || request.operation === "verify_ir_project") {
     const root = await validateCheckRoot(request.projectRoot);
-    if (!root) return denied;
-    args = ["--project", root, "--check"];
-  } else if (request.operation === "check_file") {
+    if (!root || (verifying && Object.hasOwn(request, "compatibility"))) return denied;
+    args = ["--project", root, verifying ? "--verify-ir" : "--check"];
+  } else if (request.operation === "check_file" || request.operation === "verify_ir_file") {
     const root = await validateCheckRoot(request.projectRoot);
     if (!root) return denied;
     const source = await validateCheckFile(root, request.sourceFile);
-    if (!source) return denied;
-    args = [source, "--check"];
-    if (request.compatibility === true) args.push("--compat");
-    else if (request.compatibility !== undefined && request.compatibility !== false) return denied;
+    if (!source || (verifying && Object.hasOwn(request, "compatibility"))) return denied;
+    args = [source, verifying ? "--verify-ir" : "--check"];
+    if (request.operation === "check_file") {
+      if (request.compatibility === true) args.push("--compat");
+      else if (request.compatibility !== undefined && request.compatibility !== false) return denied;
+    }
   }
   if (request.signal?.aborted) return { ok: false, reason: "cancelled", exitCode: null };
   return await new Promise<NativeResult>(done => {
@@ -159,8 +167,8 @@ export async function runAllowedNative(request: NativeRequest): Promise<NativeRe
       request.signal?.removeEventListener("abort", onAbort);
       if (failure) done({ ok: false, reason: failure, exitCode: code });
       else if (code !== 0) {
-        // Only compiler-check operations can pass bounded stderr to the internal parser.
-        if (check) done({ ok: false, reason: "nonzero_exit", exitCode: code,
+        // Only fixed, bounded native compiler validation may feed stderr to the internal parser.
+        if (compilerOperation) done({ ok: false, reason: "nonzero_exit", exitCode: code,
           diagnosticText: Buffer.concat(stderr).toString("utf8") });
         else done({ ok: false, reason: "nonzero_exit", exitCode: code });
       } else done({ ok: true, stdout: Buffer.concat(stdout).toString("utf8"),
