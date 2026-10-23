@@ -209,7 +209,10 @@ export async function scanProject(config: RuntimeConfig): Promise<ProjectScan> {
       entries.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
       for (const entry of entries) {
         if (entry.symlink) { symlinksSkipped = true; continue; }
-        if (skipName(entry.name)) continue;
+        if (entry.directory ? skipName(entry.name)
+          : entry.file && entry.name.endsWith(".gnr")
+            ? !visibleName(entry.name.slice(0, -4))
+            : skipName(entry.name)) continue;
         const child = join(current.path, entry.name);
         if (entry.directory) {
           if (current.depth >= MAX_DEPTH) {
