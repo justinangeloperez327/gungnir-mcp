@@ -1,11 +1,8 @@
-import { execFile } from "node:child_process";
 import { stat, realpath, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { delimiter, dirname, isAbsolute, join } from "node:path";
-import { promisify } from "node:util";
 
-const exec = promisify(execFile);
-const PROBE_TIMEOUT_MS = 3_000;
+import { runAllowedNative } from "./process-runner.js";
+
 const OUTPUT_LIMIT = 8_192;
 const SDK_MANIFEST_LIMIT = 16_384;
 
@@ -89,23 +86,14 @@ function cmakeCompatible(version: string): boolean {
 }
 
 export const defaultVersionProbe: VersionProbe = async (path, kind) => {
-  // This is *only* a fixed --version query; never accepts AI-selected commands.
-  // Do not inherit user secrets or application configuration into a subprocess.
-  const environment: NodeJS.ProcessEnv = {};
-  for (const key of ["PATH", "Path", "SystemRoot", "WINDIR", "TEMP", "TMP", "HOME", "LD_LIBRARY_PATH"]) {
-    if (process.env[key]) environment[key] = process.env[key];
-  }
-  const result = await exec(path, ["--version"], {
-    timeout: PROBE_TIMEOUT_MS,
-    maxBuffer: OUTPUT_LIMIT,
-    windowsHide: true,
-    shell: false,
-    cwd: tmpdir(),
-    env: environment
+  // Only the fixed allowlisted --version operation is permitted.
+  const result = await runAllowedNative({
+    executable: path,
+    tool: kind,
+    operation: "version"
   });
-  const text = result.stdout + "\n" + result.stderr;
-  if (!parseVersion(text, kind)) throw new Error("unexpected version banner");
-  return text;
+  if (!result.ok) throw new Error("Native version probe rejected");
+  return result.stdout + "\n" + result.stderr;
 };
 
 async function probeBinary(
