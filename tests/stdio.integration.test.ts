@@ -8,7 +8,7 @@ const entry = resolve(process.cwd(), "dist/index.js");
 
 type ProtocolMode = "legacy" | "modern";
 
-async function connectClient(mode: ProtocolMode, args: string[] = []): Promise<Client> {
+async function connectClient(mode: ProtocolMode, args: string[] = [], extraEnv: Record<string, string> = {}): Promise<Client> {
   const client = new Client(
     { name: "gungnir-integration-test", version: "0.9.0" },
     { versionNegotiation: { mode: mode === "legacy" ? "legacy" : { pin: "2026-07-28" } } }
@@ -17,7 +17,9 @@ async function connectClient(mode: ProtocolMode, args: string[] = []): Promise<C
     command: process.execPath,
     args: [entry, ...args],
     cwd: process.cwd(),
-    stderr: "pipe"
+    stderr: "pipe",
+    env: { ...Object.fromEntries(Object.entries(process.env)
+      .filter((entry): entry is [string, string] => typeof entry[1] === "string")), ...extraEnv }
   });
   const diagnostics: string[] = [];
   transport.stderr?.on("data", (chunk: Buffer) => { diagnostics.push(chunk.toString("utf8")); });
@@ -355,6 +357,35 @@ describe("real MCP stdio client interoperability", () => {
         expect(healthy.contents).toHaveLength(1);
       } finally { await client.close(); }
     }
+  });
+
+  it("reads only allowlisted installed SDK capabilities from a configured root in both protocol eras", async () => {
+    const { mkdtemp, mkdir, rm, writeFile } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const temp = await mkdtemp(join(tmpdir(), "gungnir-mcp-sdk-client-"));
+    const sdk = join(temp, "official-sdk");
+    await mkdir(join(sdk, "share", "gungnir"), { recursive: true });
+    await writeFile(join(sdk, "share", "gungnir", "sdk.txt"),
+      "profile=application\npackage_version=1.0.2\nsqlite=ON\npassword=OFF\n" +
+      "compiler=PRIVATE_COMPILER_LOCATION\n");
+    try {
+      for (const mode of ["legacy", "modern"] as const) {
+        const client = await connectClient(mode, [], { GUNGNIR_MCP_SDK_ROOT: sdk });
+        try {
+          const response = await client.readResource({ uri: "gungnir://sdk/capabilities" });
+          const item = response.contents[0];
+          if (!item || !("text" in item)) throw new Error("Expected SDK resource contents");
+          const info = JSON.parse(item.text) as Record<string, unknown>;
+          expect(info).toMatchObject({
+            state: "ready", version: "1.0.2", profile: "application",
+            adapters: { sqlite: true, password: false }, matchesDocumentationVersion: true
+          });
+          expect(item.text).not.toContain("PRIVATE_COMPILER_LOCATION");
+          expect(item.text).not.toContain(temp);
+        } finally { await client.close(); }
+      }
+    } finally { await rm(temp, { recursive: true, force: true }); }
   });
 
   it("exits cleanly when the client closes stdin (EOF)", async () => {
