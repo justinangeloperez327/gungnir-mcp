@@ -18,16 +18,16 @@ jobs:
       matrix:
         os: [ubuntu-24.04, windows-2025]
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - name: Set up Node 24
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
-          package-manager-cache: false
-      - name: Resolve lockfile from pinned manifest when bootstrapping
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - name: Install reproducibly using lockfile
+          cache: npm
+      - name: Install from committed lockfile
         run: npm ci --no-audit --no-fund
       - name: Lint
         run: npm run lint
@@ -39,28 +39,10 @@ jobs:
         run: npm test
       - name: Check npm tarball contents
         run: npm run pack:check
-
-  bootstrap-lockfile:
-    name: Commit lockfile once (main only)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: verify
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Upload build artifact (not a deployment)
+        uses: actions/upload-artifact@v6
         with:
-          node-version: '24'
-          package-manager-cache: false
-      - name: Generate and commit the initial npm lockfile
-        shell: bash
-        run: |
-          if [ -f package-lock.json ]; then
-            echo "Existing lockfile; nothing to commit."
-            exit 0
-          fi
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          git add package-lock.json
-          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore: lock npm dependencies'
-          git push origin HEAD:main
+          name: gungnir-mcp-${{ matrix.os }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
