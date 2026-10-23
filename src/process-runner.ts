@@ -117,7 +117,6 @@ export async function runAllowedNative(request: NativeRequest): Promise<NativeRe
     let bytes = 0;
     let failure: NativeFailure | undefined;
     let completed = false;
-    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
     const failAndStop = (reason: NativeFailure): void => {
       if (completed || failure) return;
@@ -136,12 +135,14 @@ export async function runAllowedNative(request: NativeRequest): Promise<NativeRe
       }
     };
 
+    const timeoutHandle = setTimeout(() => { failAndStop("timeout"); }, timeout);
+
     child.stdout?.on("data", (chunk: Buffer) => record(chunk, stdout));
     child.stderr?.on("data", (chunk: Buffer) => record(chunk, stderr));
     child.once("error", () => { failAndStop("spawn_failed"); });
     child.once("close", (code: number | null) => {
       completed = true;
-      if (timeoutHandle) clearTimeout(timeoutHandle);
+      clearTimeout(timeoutHandle);
       request.signal?.removeEventListener("abort", onAbort);
       if (failure) {
         done({ ok: false, reason: failure, exitCode: code });
@@ -158,6 +159,5 @@ export async function runAllowedNative(request: NativeRequest): Promise<NativeRe
     // Attach after close handling so early failures are still reaped.
     request.signal?.addEventListener("abort", onAbort, { once: true });
     if (request.signal?.aborted) onAbort();
-    timeoutHandle = setTimeout(() => { failAndStop("timeout"); }, timeout);
   });
 }
