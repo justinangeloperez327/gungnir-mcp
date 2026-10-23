@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { stat, realpath, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, delimiter, dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { delimiter, dirname, isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
