@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { foundationStatus, SERVER_NAME, SERVER_VERSION } from "../src/status.js";
 
-describe("Group 4 status", () => {
+describe("Group 5 status", () => {
   it("reports truthful group identity and unimplemented project mutations", () => {
     const status = foundationStatus();
     expect(status.name).toBe(SERVER_NAME);
     expect(status.version).toBe(SERVER_VERSION);
-    expect(status.implementationGroup).toBe(4);
+    expect(status.implementationGroup).toBe(5);
     expect(status.capabilities).toEqual(["gungnir_status", "gungnir_toolchain_info"]);
     expect(status.nativeCliAvailable).toBe("not-checked");
     expect(status.projectMutationEnabled).toBe(false);

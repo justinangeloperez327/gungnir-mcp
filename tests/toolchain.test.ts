@@ -157,7 +157,7 @@ describe("native SDK discovery", () => {
 
 describe("real fixed-argument version probe", () => {
   it.skipIf(process.platform === "win32")("executes only --version against a temporary test binary", async () => {
-    const script = join(root, "test-probe");
+    const script = join(root, "gungnir");
     await writeFile(script, "#!/bin/sh\n[ \"$1\" = \"--version\" ] || exit 1\nprintf 'gungnir version 1.0.2\\n'\n");
     await chmod(script, 0o755);
     const output = await defaultVersionProbe(script, "gungnir");
