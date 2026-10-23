@@ -36,7 +36,10 @@ const MAX_DIAGNOSTICS = 40;
 const HEADER = /^(.*):([1-9]\d{0,6}):([1-9]\d{0,6}): (error|warning)(?:\[(GNR\d{4})\])?: (.+)$/u;
 
 function safeMessage(raw: string, root: string): string {
-  const noControls = raw.replace(/[\x00-\x1f\x7f]/gu, " ").trim();
+  const noControls = Array.from(raw, char => {
+    const code = char.charCodeAt(0);
+    return code < 32 || code === 127 ? " " : char;
+  }).join("").trim();
   // Errors can echo private paths or literal source tokens. Redact strings,
   // absolute paths, and the configured project root before returning to MCP.
   return noControls.replaceAll(root, "[project]")
