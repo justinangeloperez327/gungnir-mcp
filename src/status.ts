@@ -1,7 +1,7 @@
 import type { RuntimeConfig } from "./config.js";
 
 export const SERVER_NAME = "gungnir-mcp";
-export const SERVER_VERSION = "0.8.0";
+export const SERVER_VERSION = "0.9.0";
 
 export interface FoundationStatus {
   readonly name: string;
@@ -17,7 +17,7 @@ export function foundationStatus(config: RuntimeConfig = { projectRoot: null, tr
   return {
     name: SERVER_NAME,
     version: SERVER_VERSION,
-    implementationGroup: 8,
+    implementationGroup: 9,
     capabilities: ["gungnir_status", "gungnir_toolchain_info", "gungnir_project_info", "gungnir_list_modules", "gungnir_check", "gungnir_verify_ir"],
     nativeCliAvailable: "not-checked",
     projectMutationEnabled: false,

@@ -5,6 +5,9 @@ import { checkGungnir, verifyGungnirIr } from "./compiler-check.js";
 import { disabledRuntimeConfig } from "./config.js";
 import type { RuntimeConfig } from "./config.js";
 import { listProjectModules, scanProject, summarizeProject } from "./project.js";
+import { CATALOG_RESOURCE_URI, DOC_MIME, SDK_MIME, SDK_RESOURCE_URI,
+  documentationCatalogJson, officialResourceCatalog, readOfficialDocument,
+  readSdkCapabilities } from "./resources.js";
 import { foundationStatus, SERVER_NAME, SERVER_VERSION } from "./status.js";
 import { discoverToolchain } from "./toolchain.js";
 
@@ -98,6 +101,48 @@ export function createServer(config: RuntimeConfig = disabledRuntimeConfig()): M
         content: [{ type: "text" as const, text: JSON.stringify(result) }]
       };
     }
+  );
+
+
+  // Static, exact-URI resources only: no template variables or arbitrary paths.
+  for (const resource of officialResourceCatalog()) {
+    server.registerResource(
+      resource.title, resource.uri,
+      {
+        title: resource.title,
+        description: "Official Gungnir 1.0.2 documentation (pinned git snapshot)",
+        mimeType: DOC_MIME
+      },
+      async uri => ({
+        contents: [{ uri: uri.href, mimeType: DOC_MIME,
+          text: readOfficialDocument(uri.href) }]
+      })
+    );
+  }
+
+  server.registerResource(
+    "Gungnir Documentation Catalog", CATALOG_RESOURCE_URI,
+    {
+      title: "Gungnir Documentation Catalog",
+      description: "Pinned, versioned official document URI catalog with source provenance",
+      mimeType: SDK_MIME
+    },
+    async uri => ({
+      contents: [{ uri: uri.href, mimeType: SDK_MIME, text: documentationCatalogJson() }]
+    })
+  );
+
+  server.registerResource(
+    "Gungnir SDK Capabilities", SDK_RESOURCE_URI,
+    {
+      title: "Gungnir SDK Capabilities",
+      description: "Validated local SDK profile, package version and adapter flags without file paths",
+      mimeType: SDK_MIME
+    },
+    async uri => ({
+      contents: [{ uri: uri.href, mimeType: SDK_MIME,
+        text: JSON.stringify(await readSdkCapabilities()) }]
+    })
   );
 
   return server;
