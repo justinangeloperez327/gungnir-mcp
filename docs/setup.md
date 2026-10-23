@@ -1,16 +1,14 @@
 # Local setup
 
-## Prerequisites
-
 1. Install Node.js 24.
 2. Clone `justinangeloperez327/gungnir-mcp`.
-3. Run `npm ci` (lockfile committed to `main`).
+3. Run `npm ci` using the committed lockfile.
 4. Run `npm run lint && npm run typecheck && npm run build && npm test`.
-5. Point your MCP host to `node dist/index.js`.
+5. Launch `node dist/index.js` from an MCP host.
 
 ## VS Code example
 
-Use an absolute path to the local clone's compiled `dist/index.js` in a workspace `.vscode/mcp.json` file:
+Use an absolute path to `dist/index.js` in workspace `.vscode/mcp.json`:
 
 ```json
 {
@@ -18,14 +16,18 @@ Use an absolute path to the local clone's compiled `dist/index.js` in a workspac
     "gungnir": {
       "type": "stdio",
       "command": "node",
-      "args": ["/absolute/path/to/gungnir-mcp/dist/index.js"]
+      "args": [
+        "/absolute/path/to/gungnir-mcp/dist/index.js",
+        "--project-root",
+        "/absolute/path/to/your/project",
+        "--trusted-root",
+        "/absolute/path/to/your/trusted/parent"
+      ]
     }
   }
 }
 ```
 
-Other MCP clients use their own configuration conventions. The server responds to both legacy and 2026-07-28 protocol opening messages through the official TypeScript SDK. See [protocol](protocol.md) for details.
+Remove the trust flags to use read-only status with project access disabled. On Windows supply absolute paths using escaped backslashes in JSON, or forward slashes. See [Configuration](configuration.md) for environment alternatives.
 
-## Package
-
-`npm run pack:check` inspects packaging but does not publish. CI uploads build archives but does not publish or deploy.
+Package verification with `npm run pack:check` does not publish. CI uploads build archives only.

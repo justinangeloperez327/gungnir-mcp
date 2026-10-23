@@ -2,15 +2,15 @@
 
 [![CI](https://github.com/justinangeloperez327/gungnir-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/justinangeloperez327/gungnir-mcp/actions/workflows/ci.yml)
 
-**Gungnir MCP Server** provides a Model Context Protocol (MCP) integration for the [Gungnir](https://github.com/justinangeloperez327/gungnir) C++23 web framework and its `.gnr` language.
+**Gungnir MCP Server** integrates the [Gungnir](https://github.com/justinangeloperez327/gungnir) C++23 framework and `.gnr` language with MCP hosts.
 
-> **Status: Group 2 protocol foundation / developer preview (0.2.0).** Includes read-only `gungnir_status`, a real stdio server with clean shutdown, and client integration tests for both legacy and modern MCP protocol eras. Native toolchain discovery, source validation, code generation, and builds remain planned.
+> **Group 3 / developer preview (0.3.0).** Local stdio server supporting legacy and modern MCP, validated configuration and fail-closed project trust. Only `gungnir_status` is exposed; native compiler, build and code generation are not yet available.
 
 ## Requirements
 
-- Node.js **24** and npm.
-- A compatible MCP host for stdio connections.
-- A Gungnir SDK is **not required** for Groups 1–2.
+- Node.js **24** with npm
+- An MCP client supporting local stdio
+- Gungnir SDK is not required until later groups
 
 ## Development
 
@@ -23,32 +23,22 @@ npm test
 npm run pack:check
 ```
 
-The compiled entry point `node dist/index.js` is an MCP server, not an interactive terminal application. Its stdout is reserved for protocol frames. To exercise it, connect an MCP client or run:
+Launch with `node dist/index.js`, or use `npx @modelcontextprotocol/inspector node dist/index.js`.
+
+## Optional explicit project trust
+
+No working directory is trusted implicitly. You can configure a project and its trusted parent directory for future capabilities:
 
 ```bash
-npx @modelcontextprotocol/inspector node dist/index.js
+node dist/index.js --project-root "/home/dev/inventory" --trusted-root "/home/dev"
 ```
 
-`npm run dev` starts the TypeScript entry point under `tsx`.
+Alternatively use the environment variables `GUNGNIR_MCP_PROJECT_ROOT` and `GUNGNIR_MCP_TRUSTED_ROOTS`. Repeat `--trusted-root` for additional allowlist entries. Environment trusted-root entries use the platform's path delimiter (`:` on Linux, `;` on Windows). CLI trust flags replace environment trust roots.
 
-## Current MCP API
+Missing/invalid trust causes startup failure on stderr. The current status tool reports `projectAccess: "disabled" | "trusted"` without revealing any root path. Trust **does not** enable native execution or mutations.
 
-- Tool: `gungnir_status` (read-only), returning server identity, group and available capabilities.
-- Transport: stdio only.
-- Protocol: MCP SDK v2's legacy 2025 initialization and modern 2026-07-28 discovery, with automatic era selection on inbound stdio messages.
-- Lifecycle: EOF closes the connection; SIGINT and SIGTERM request idempotent graceful teardown.
-- Errors: SDK JSON-RPC errors stay in-band, transport diagnostics go to stderr.
+See [Configuration](docs/configuration.md), [Security](docs/security.md), [Architecture](docs/architecture.md), [Setup](docs/setup.md), [Protocol](docs/protocol.md), and [Roadmap](docs/roadmap.md).
 
-No native project commands or filesystem writes are currently exposed.
+CI verifies Node 24 builds and tests on Ubuntu 24.04 and Windows 2025. No automatic npm publishing or deployment.
 
-## Documentation
-
-[Architecture](docs/architecture.md) · [Setup](docs/setup.md) · [Protocol and troubleshooting](docs/protocol.md) · [Security](docs/security.md) · [Roadmap](docs/roadmap.md)
-
-## Delivery policy
-
-GitHub Actions validates Node.js 24 on Ubuntu and Windows and stores build artifacts. No npm publication or deployment takes place.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+MIT License.
