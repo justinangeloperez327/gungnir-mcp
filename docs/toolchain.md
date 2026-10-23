@@ -14,7 +14,7 @@ Relative and empty PATH entries are ignored; `.bat` and `.cmd` wrappers are not 
 
 ## Version checks
 
-Exactly three binary names are supported: `gungnir`, `gungnirc`, and `cmake`. Discovery invokes each binary only with `--version`, without a shell, using a temporary working directory, a three-second timeout, restricted environment variables, an 8 KiB output limit and hidden Windows windows.
+Exactly three binary names are supported: `gungnir`, `gungnirc`, and `cmake`. Discovery invokes each binary only with `--version`, without a shell, using a temporary working directory, a three-second default timeout, restricted environment variables, an 8 KiB default combined-output limit, and hidden Windows windows. It now uses the audited Group 5 `runAllowedNative` runner ([details](process-runner.md)) with cancellation support; no project execution options are exposed.
 
 Expected compatibility:
 - Gungnir CLI / compiler / SDK: major version **1**, and versions must match

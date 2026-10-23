@@ -4,7 +4,7 @@
 
 **Gungnir MCP Server** integrates the [Gungnir](https://github.com/justinangeloperez327/gungnir) C++23 framework and `.gnr` language with MCP hosts.
 
-> **Group 4 / developer preview (0.4.0).** Includes local stdio MCP (legacy and modern protocols), validated trusted project roots, and **read-only native toolchain discovery**. Compiler checking, project builds and code generation are **not yet available**.
+> **Group 5 / developer preview (0.5.0).** Includes local stdio MCP (legacy and modern protocols), validated trusted project roots, **read-only native toolchain discovery**, and a bounded, allowlisted native process runner. Compiler checking, project builds and code generation are **not yet available**.
 
 ## Requirements
 
@@ -37,6 +37,12 @@ The process uses stdout exclusively for JSON-RPC messages. Do not run it as an i
 - `gungnir_toolchain_info`: an on-demand, no-argument, **read-only discovery** operation. It locates `gungnir`, `gungnirc`, `cmake`, reads `share/gungnir/sdk.txt`, and issues **only** fixed `--version` commands. Returns versions, SDK profile, enabled adapters, compatibility status and redacted diagnostic messages, without absolute paths.
 
 The discovery operation executes the installed binaries to obtain version banners. Only configure toolchains from sources you trust.
+
+## Secure subprocess boundary
+
+Group 5 replaces direct CLI probing with an internal process runner. It only permits `gungnir --version`, `gungnirc --version`, and `cmake --version` against validated native executables. It rejects arbitrary commands, build/run/check operations, caller-supplied arguments, relative executables, and script wrappers. Internal callers may request bounded timeouts, output limits, or AbortSignal cancellation. The child runs with an isolated environment, no stdin, no shell, and no project working directory.
+
+No general-purpose process tool has been added to MCP. **This is not an OS sandbox:** an executable selected from an untrusted PATH can still be malicious. See [Process runner](docs/process-runner.md) for the exact security boundary and limitations.
 
 ## Toolchain selection
 

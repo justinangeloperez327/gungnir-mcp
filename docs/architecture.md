@@ -20,3 +20,9 @@ MCP client
 No Gungnir application code is loaded, compiled or executed. The toolchain probe has no dependency on an explicitly trusted project directory. Paths and raw CLI output remain private; only profile, version, enabled capabilities and generic diagnostics reach the MCP client.
 
 The existing `serveStdio` MCP SDK v2 adapter supports both protocol eras, EOF handling and graceful signal shutdown. See [Toolchain discovery](toolchain.md), [Configuration](configuration.md), [Security](security.md) and [Roadmap](roadmap.md).
+
+## Group 5 subprocess boundary
+
+`gungnir_toolchain_info` now routes fixed version commands through `runAllowedNative`. The internal runner canonicalizes executable paths, rejects non-native or mismatched executable basenames, and runs native binaries through `spawn` with a fixed `--version` argument, disabled shell/stdin, temporary working directory, restricted environment, and bounded time/output. The subprocess result is converted by toolchain discovery into version metadata or generic errors; paths and raw failure text are never included in the MCP response.
+
+This is **not** a capability to compile or execute project code. No new MCP tool accepts process arguments. [Process runner](process-runner.md) documents the constraints.
